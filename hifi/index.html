@@ -19,6 +19,10 @@
   .t { font: var(--label); display: block; margin-bottom: 4px; }
   .d { font: var(--p3); color: var(--ink-2); }
   .note { font: var(--p4); color: var(--ink-2); margin-top: 32px; }
+  .how { margin-top: 48px; padding: 32px; border-radius: 20px; background: var(--surface-tint); }
+  .how h2 { font: var(--h6); margin: 0 0 16px; }
+  .how p { font: var(--p2); margin: 0; }
+  .how p + p { margin-top: 12px; }
 </style>
 </head>
 <body>
@@ -29,9 +33,15 @@
   <ul>
     <li><a class="row" href="v2/"><span class="t">Prototype</span><span class="d">The offer can start from a job link, notes or an approved offer, then you check and send it.</span></a></li>
     <li><a class="row" href="v1/"><span class="t">Earlier version</span><span class="d">A plainer version where the employer types everything in.</span></a></li>
-    <li><a class="row" href="promo/v2.html"><span class="t">Promo page section</span><span class="d">Optional.</span></a></li>
+    <li><a class="row" href="promo/v2.html"><span class="t">Promo page section</span><span class="d">Optional. A section for Bolto's site announcing the new offer flow.</span></a></li>
   </ul>
   <p class="note">Each prototype has a Demo states button at the bottom left to jump between states.</p>
+  <section class="how" aria-labelledby="how-h">
+    <h2 id="how-h">How I worked</h2>
+    <p>I use Figma more like a scratchpad than a design tool. For both versions, v1 and v2, I made rough wireframes there first. It's a fast way to ideate and iterate. Then I built the screens in code (HTML, CSS and JS) using the tokens from Bolto's brand kit, and captured the coded screens back into the Figma file. The prototype is the code.</p>
+    <p>I like starting on a blank canvas. When I look at an empty page, it pushes me to think about ideas without the pressure of a final design. To me a designer's job is solving product problems, and most of the brain power goes into brainstorming, not into pushing pixels. From what I've seen, fast teams are designing less in Figma now, and I lean the same way. So I brainstorm in Figma and build in code.</p>
+    <p>One suggestion, if it's useful. Bolto's brand kit is already in Figma. Turning it into an MCP server would let the team use the same design system in code and ship UI faster.</p>
+  </section>
 </main>
 </body>
 </html>

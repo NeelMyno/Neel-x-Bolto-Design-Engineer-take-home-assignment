@@ -332,7 +332,7 @@ function checks(){
   if(pst && a && f.payType === pst.unit && (a < pst.min || a > pst.max))
     out.push({k:'amount', msg:`${money(a)} is outside the posted range, ${money(pst.min)} to ${money(pst.max)} ${pst.unit === 'Hourly' ? 'an hour' : 'a year'}`});
   const m = S.notes.match(/will set (?:her|his|their) weekly schedule/i);
-  if(m && !isEmp()) out.push({k:'empType', msg:`Your notes mention “${m[0]}”. Who controls the work is one factor the DOL weighs; no single factor decides.`});
+  if(m && !isEmp()) out.push({k:'empType', msg:`Your notes mention “${m[0]}”. Who sets the schedule is one thing the US Department of Labor looks at. No single thing decides it.`});
   if(f.expiry && f.startDate && f.expiry > f.startDate) out.push({k:'expiry', msg:`The offer expires after the start date (${fdate(f.startDate)})`});
   return out;
 }
@@ -376,7 +376,7 @@ function badgeInner(sec){ const f = secSrc(sec); return f ? `${I(SRC[f].icon)}<s
 function badgeHTML(sec){ return SRCSEC[sec] ? `<span class="src-badge" id="sl-${sec}"${secSrc(sec) ? '' : ' hidden'}>${badgeInner(sec)}</span>` : ''; }
 function srcParts(k){
   const p = S.prop[k];
-  if(p) return {t:`Your notes say “${esc(p.quote)}”. Bolto won't fill pay from notes without you.`, b:`${tip('Read from notes', TIP.notes)}<button type="button" class="linkbtn" data-use="${k}">Use ${esc(p.label)}</button>`};
+  if(p) return {t:`Your notes say “${esc(p.quote)}”. Pay from notes waits for you to confirm it.`, b:`${tip('Read from notes', TIP.notes)}<button type="button" class="linkbtn" data-use="${k}">Use ${esc(p.label)}</button>`};
   const s = S.src[k]; if(!s) return {t:'', b:''};
   if(changed(k)){
     const was = s.from === 'settings' ? `Company setting: ${k === 'expiry' ? '7 days from today' : esc(k === 'sender' ? (SENDERS.find(x => x.id === s.val) || {}).name || s.val : fmtV(k, s.val))}`
@@ -1197,7 +1197,7 @@ function startFill(kind){
   } else {
     if(!S.paste.trim()) return pasteMsg('Paste a job link, notes or a file first.');
     const r = parsePaste(S.paste);
-    if(!r) return fail(!WF.noMatch && /https?:\/\/\S+/i.test(S.paste) ? "Couldn't read this link in the prototype. In the product Bolto would read the posting." : NO_MATCH);
+    if(!r) return fail(!WF.noMatch && /https?:\/\/\S+/i.test(S.paste) ? "Couldn't read this link. Paste the job details instead." : NO_MATCH);
     if(r.email && !r.notes && !r.link){ reading = "Reading Jordan's email…"; apply = () => applyEmail(r.email); name = "Jordan's email"; }
     else {
       reading = r.link && r.notes ? 'Reading the job posting and your notes…' : r.link ? 'Reading the job posting…' : 'Reading your notes…';
@@ -1259,7 +1259,7 @@ async function finishFill(apply, name){
   S.holdStatus = false; updateStatus(); updateBar(false);
   S.filling = false;
   ACC.announce = false; ACC.update(); ACC.announce = true;
-  const pre = name === "Jordan's email" && S.conf.startDate ? emailPre : nFill ? `Filled from ${name}.` : `Read ${name}. Nothing was filled without you.`;
+  const pre = name === "Jordan's email" && S.conf.startDate ? emailPre : nFill ? `Filled from ${name}.` : `Read ${name}. Nothing was filled. What it found is waiting for you below.`;
   await setFill({pre, undo:true}, true);
   if(!Object.keys(S.conf).length){
     /* the accordion's close trackers are still anchored on #atsQ; the bar shows above it (+56px) and they would chase it.
