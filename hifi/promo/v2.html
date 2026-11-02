@@ -4,46 +4,68 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="data:,">
-<title>Bolto promo email, v2</title>
+<title>Bolto promo, v2</title>
 <link rel="stylesheet" href="../shared/tokens.css">
 <link rel="stylesheet" href="promo.css">
 </head>
 <body>
-<main class="email v2">
-  <div class="top"><img src="../shared/brand/full-ink.svg" alt="Bolto"></div>
+<main class="page wrap">
+  <div class="bar">
+    <img src="../shared/brand/full-ink.svg" alt="Bolto">
+    <span class="kicker"><span class="label">Offer letters</span><span class="new">New</span></span>
+  </div>
 
-  <div class="hero">
+  <div class="head">
     <h1>Start offers from what you already have</h1>
-    <p class="sub">Paste a job link or your notes. Bolto fills in the offer and shows where each value came from. You still decide pay, worker type and overtime.</p>
-    <a class="btn" href="../v2/index.html">Create offer letter</a>
-  </div>
-
-  <div class="visual" role="img" aria-label="The offer page: a Start from card with a pasted job link and notes, and the line Filled, 3 need you, beside the letter.">
-    <div class="start">
-      <h2>Start from</h2>
-      <div class="field"><span data-ic="link"></span>jobs.example.com/4821</div>
-      <div class="note"><span data-ic="sticky-note"></span><span>"Priya Shah, contractor through Dec 31. $95/hr. Starts Jul 1."</span></div>
-      <p class="status"><span data-ic="circle-check"></span>Filled · 3 need you</p>
-    </div>
-    <div class="paper">
-      <div class="head"><span class="co">Acme Co.</span></div>
-      <p class="dear">Dear Priya,</p>
-      <dl>
-        <dt>Start date</dt><dd>July 1, 2026</dd>
-        <dt>Work location</dt><dd>Hybrid</dd>
-        <dt>Pay</dt><dd><span class="gap">pay</span></dd>
-        <dt>Offer expires</dt><dd>June 20, 2026</dd>
-      </dl>
+    <div class="lede">
+      <p>Paste a job link or your notes. Bolto fills in the offer and shows where each value came from. You still decide pay, worker type and overtime.</p>
+      <a class="cta" href="../v2/">Create offer letter<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></a>
     </div>
   </div>
 
-  <ul class="benefits">
-    <li><strong>Start from what you have.</strong> Paste a job link, notes or a file and the offer fills in beside the letter. Anything you set first stays yours, and "Undo fill" clears only what Bolto filled.</li>
-    <li><strong>See where each value came from.</strong> Each section says whether it came from the job posting, your notes or your settings. Anything Bolto read from your notes shows the words it came from.</li>
-    <li><strong>You make the calls.</strong> Bolto leaves worker type, remote state and overtime for you to answer, and Review shows one sentence to approve before the offer goes out.</li>
-  </ul>
+  <div class="body">
 
-  <footer class="foot"><img src="../shared/brand/wordmark-ink.svg" alt="Bolto"><span>You're getting this because your team uses Bolto.</span></footer>
+    <div class="stage" role="group" aria-label="An offer for Priya Shah, filled from a job posting and pasted notes. Each line of the letter names where it came from.">
+      <div class="sources">
+        <p class="lab">What you pasted</p>
+        <div class="card">
+          <p class="card-h"><span data-ic="link"></span>Job posting<span class="meta">Ashby</span></p>
+          <p class="url"><span data-ic="link"></span><span class="t">jobs.ashbyhq.com/acme/product-designer</span></p>
+          <p class="lines"><span><mark data-k="title">Product designer</mark> · Acme Co.</span><span><mark data-k="loc">Hybrid, New York office</mark></span><span>Contract · $90 to $100 an hour</span></p>
+        </div>
+        <div class="card">
+          <p class="card-h"><span data-ic="sticky-note"></span>Your notes<span class="meta">Pasted</span></p>
+          <p class="quote"><mark data-k="name">Priya Shah</mark>, <mark data-k="type">contractor</mark> <mark data-k="end">through Dec 31</mark>. <mark data-k="pay">$95/hr</mark>. <mark class="def" data-k="start">Starts Jul 1</mark>. Hybrid in the NY office. <mark data-k="reports">Jordan is her contact</mark> and will set her weekly schedule.</p>
+        </div>
+      </div>
+
+      <div class="letter">
+        <p class="lab">What Bolto filled in</p>
+      <div class="paper">
+        <div class="paper-h"><span class="co">Acme Co.</span><span class="st">Draft</span></div>
+        <p class="dear">Dear Priya,</p>
+        <ul class="rows">
+          <li class="row" data-k="name"><span class="k">Candidate</span><span class="v">Priya Shah</span><span class="from"><span data-ic="sticky-note"></span>Your notes</span></li>
+          <li class="row" data-k="title"><span class="k">Role</span><span class="v">Product designer</span><span class="from"><span data-ic="file-text"></span>Job posting</span></li>
+          <li class="row yours" data-k="type"><span class="k">Worker type</span><span class="v"><span class="gap">You choose</span></span><span class="from">Notes say "contractor"</span></li>
+          <li class="row def" data-k="start"><span class="k">Start date</span><span class="v">July 1, 2026</span><span class="from"><span data-ic="sticky-note"></span>Your notes</span></li>
+          <li class="row" data-k="end"><span class="k">Ends</span><span class="v">December 31, 2026</span><span class="from"><span data-ic="sticky-note"></span>Your notes</span></li>
+          <li class="row" data-k="reports"><span class="k">Reports to</span><span class="v">Jordan Lee</span><span class="from"><span data-ic="sticky-note"></span>Your notes</span></li>
+          <li class="row" data-k="loc"><span class="k">Location</span><span class="v">Hybrid, New York office</span><span class="from"><span data-ic="file-text"></span>Job posting</span></li>
+          <li class="row yours" data-k="pay"><span class="k">Pay</span><span class="v use"><span class="gap"><span class="sug">$95 an hour</span></span><button type="button" class="btn-s">Use</button></span><span class="from"><span data-ic="sticky-note"></span>Waiting on you</span></li>
+        </ul>
+        <p class="paper-f"><span data-ic="circle-check"></span>Filled from the job posting and your notes.</p>
+      </div>
+      </div>
+
+      <p class="stage-note">Point at a line in the letter to see where it came from.</p>
+    </div>
+    <ol class="points">
+      <li class="pt" data-p="sources"><span class="n">1</span><h2>Start from what you have</h2><p>Paste a job link, notes or a file and the offer fills in beside the letter. Anything you set first stays yours, and "Undo fill" clears only what Bolto filled.</p></li>
+      <li class="pt" data-p="origin"><span class="n">2</span><h2>See where each value came from</h2><p>Each line says whether it came from the job posting, your notes or your settings. Anything read from your notes shows the words it came from.</p></li>
+      <li class="pt" data-p="calls"><span class="n">3</span><h2>You make the calls</h2><p>Bolto leaves worker type, remote state and overtime for you to answer. Pay from your notes waits for you to use it.</p></li>
+    </ol>
+  </div>
 </main>
 <script src="../shared/icons/icons.js"></script>
 <script>document.querySelectorAll('[data-ic]').forEach(function(el){ el.outerHTML = Icons.svg(el.dataset.ic); });</script>

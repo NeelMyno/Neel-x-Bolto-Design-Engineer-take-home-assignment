@@ -106,4 +106,11 @@
   --pop-from: 0.8;            /* M3: status pop */
   --tip-from: 0.96;           /* M13: toggletip scale */
   --dot-from: 0.5;            /* M11: radio dot */
+
+  /* Added for the promo section (2026-11-02): a marketing headline above the kit's H4, and lines on the blue stage.
+     Same face, same regular weight, tracking tightened to its size. */
+  --d1: 400 64px/64px var(--font);      /* promo headline at desktop; H4 below 900 wide */
+  --track-display: -0.035em;
+  --on-blue-line: rgba(255, 255, 255, 0.28);  /* hairlines and rings on Bolto blue, never text */
+  --on-blue-wash: rgba(255, 255, 255, 0.10);  /* the stage's inner panel */
 }
