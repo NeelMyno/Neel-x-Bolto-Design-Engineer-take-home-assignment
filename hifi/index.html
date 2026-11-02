@@ -18,6 +18,10 @@
   a.row:focus-visible { outline: var(--focus-width) solid var(--focus); outline-offset: var(--focus-offset); }
   .t { font: var(--label); display: block; margin-bottom: 4px; }
   .d { font: var(--p3); color: var(--ink-2); }
+  a.row.main { border-color: var(--blue); }
+  a.row.main:hover { border-color: var(--blue-hover); background: var(--surface-tint); }
+  .main .t { display: flex; align-items: center; gap: 8px; }
+  .pill { font: var(--p4); font-weight: 500; line-height: 20px; padding: 0 8px; border-radius: var(--r-pill); background: var(--blue-pill); color: var(--ink); }
   .note { font: var(--p4); color: var(--ink-2); margin-top: 32px; }
   .how { margin-top: 48px; padding: 32px; border-radius: 20px; background: var(--surface-tint); }
   .how h2 { font: var(--h6); margin: 0 0 16px; }
@@ -31,7 +35,7 @@
   <h1>Sending an offer to a new hire</h1>
   <p class="lede">A design take-home for Bolto by Neel Tengariya. Everything here uses dummy data.</p>
   <ul>
-    <li><a class="row" href="v2/"><span class="t">Prototype</span><span class="d">The offer can start from a job link, notes or an approved offer, then you check and send it.</span></a></li>
+    <li><a class="row main" href="v2/"><span class="t">Prototype<span class="pill">Start here</span></span><span class="d">The offer can start from a job link, notes or an approved offer, then you check and send it.</span></a></li>
     <li><a class="row" href="v1/"><span class="t">Earlier version</span><span class="d">A plainer version where the employer types everything in.</span></a></li>
     <li><a class="row" href="promo/v2.html"><span class="t">Promo page section</span><span class="d">Optional. A section for Bolto's site announcing the new offer flow.</span></a></li>
   </ul>
