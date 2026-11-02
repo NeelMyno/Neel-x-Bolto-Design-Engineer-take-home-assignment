@@ -1,0 +1,5 @@
+{
+  "cleanUrls": false,
+  "trailingSlash": true,
+  "redirects": [{ "source": "/", "destination": "/hifi/", "permanent": false }]
+}

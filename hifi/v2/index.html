@@ -1,0 +1,1793 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>New offer · Bolto</title>
+<!-- Bolto offer flow, v2: the offer can start from a job link, notes, a file or an approved offer. Built on the v1 page.
+     Shared kit: ../shared/. -->
+<link rel="icon" href="../shared/brand/brandmark-ink.svg">
+<link rel="stylesheet" href="../shared/tokens.css">
+<link rel="stylesheet" href="../shared/hifi.css">
+<style>
+/* Page-level overrides (tokens only). The floor bar's fill is a measurement, not an action, so it's neutral, not Bolto Blue. */
+.floor-fill { background: var(--ink-2); }
+.result.neutral .ic { color: var(--ink-2); }
+/* Narrow-phone fit (320px). An input's default size set the affix's min-content, and a grid item's min-width:auto let it push
+   the accordion past the screen; floor labels are nudged back inside the track by clampFloorLabs(). */
+.acc-clip, .acc-inner { min-width: 0; }
+.affix input { width: 0; }
+.floor-lab { translate: var(--nudge, 0) 0; }
+/* The email preview's button is a picture of what the hire sees, not a control: muted, so Send stays the one primary on Review. */
+.fakebtn { min-height: 28px; padding: 0 var(--s3); background: var(--surface-sunk); color: var(--ink-2); border: 1px solid var(--line-2); font: var(--p4); }
+/* v2 page parts on the shared kit (tokens only) */
+.start-h { font: var(--h6); color: var(--ink); margin: 0 0 var(--s4); }
+.combo { position: relative; }
+.combo .search-ic { position: absolute; left: var(--s3); top: 50%; transform: translateY(-50%); color: var(--ink-2); pointer-events: none; }
+.combo .input { padding-left: calc(var(--s3) + var(--icon) + var(--s2)); }
+.cand-list { position: absolute; z-index: 5; left: 0; right: 0; top: calc(100% + var(--s1)); margin: 0; padding: var(--s1); list-style: none; background: var(--surface); border: 1px solid var(--line-2); border-radius: var(--r-md); box-shadow: var(--shadow-pop);
+  opacity: 0; transform: translateY(var(--rise-sm)); transition: opacity var(--d-fast) var(--ease-enter), transform var(--d-fast) var(--ease-enter); }
+.cand-list.is-open { opacity: 1; transform: none; }
+.cand-opt { display: flex; align-items: center; gap: var(--s3); padding: var(--s2) var(--s3); border-radius: var(--r-sm); cursor: pointer; min-height: 44px; }
+.cand-opt[aria-selected="true"] { background: var(--surface-tint); }
+@media (hover: hover) and (pointer: fine) { .cand-opt:not([aria-disabled="true"]):hover { background: var(--surface-tint); } }
+.cand-opt[aria-disabled="true"] { cursor: default; color: var(--ink-2); font: var(--p3); }
+.cand-opt .avatar { position: static; transform: none; flex: none; }
+.cand-txt { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.cand-txt .n { font: var(--label); color: var(--ink); }
+.cand-txt .r { font: var(--p3); color: var(--ink-2); }
+.or-row { display: flex; align-items: center; gap: var(--s3); margin: var(--s6) 0 0; font: var(--p3); color: var(--ink-2); }
+.or-row::before, .or-row::after { content: ""; flex: 1; border-top: 1px solid var(--line-1); }
+.drop { display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap; margin-top: var(--s2); padding: var(--s3); border: 1px dashed var(--line-field); border-radius: var(--r-md); font: var(--p3); color: var(--ink-2); }
+.drop.is-over { border-color: var(--blue); background: var(--surface-tint); }
+.start-acts { display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap; margin-top: var(--s4); }
+.fill-row { display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap; margin-top: var(--s4); }
+.fill-row[hidden] { display: none; }
+.start-card .fill-row { padding: 0 var(--s6) var(--s6); margin-top: 0; }
+.start-card .fill-row.sr { padding: 0; }
+.pastemsg { font: var(--p3); color: var(--error); margin-top: var(--s2); }
+.pastemsg:empty { display: none; }
+.src-slot { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s1) var(--s3); margin-top: var(--s2); }
+.src-slot .src { font: var(--p3); color: var(--ink-2); margin: 0; }
+.src-slot .src:empty { display: none; }
+.conflict-wrap { border: 0; padding: 0; margin: 0; min-width: 0; }
+.conflict-wrap > legend { font: var(--label); color: var(--ink); margin-bottom: var(--s2); padding: 0; }
+.conflict-card { display: flex; flex-direction: column; gap: var(--s2); }
+.conflict-card .who { display: flex; align-items: center; gap: var(--s1); font: var(--p4); color: var(--ink-2); margin: 0; }
+.conflict-card .who .ic { width: 14px; height: 14px; }
+.conflict-card .val { font: var(--h6); color: var(--ink); font-variant-numeric: tabular-nums; margin: 0; }
+.conflict-card .q { font: var(--p3); color: var(--ink-2); margin: 0; }
+.conflict-card .btn { align-self: flex-start; }
+.conflict-card .chosen-ic { display: inline-flex; color: var(--blue); opacity: 0; transform: scale(.6); transition: opacity var(--d-base) var(--ease-enter), transform var(--d-base) var(--ease-enter); }
+.conflict-card.is-chosen .chosen-ic { opacity: 1; transform: none; }
+.conflict-card.is-gone { opacity: 0; transition: opacity var(--d-base) var(--ease-exit); }
+/* r3: the Start card's full view and its folded bar crossfade (content out first, the bar in after the rows start) */
+.start-in { transition: opacity var(--d-base) var(--ease-enter) var(--d-delay); }
+.start-card[data-open="false"] .start-in { opacity: 0; transition: opacity var(--d-fade-out) var(--ease-exit); }
+.start-bar { transition: opacity var(--d-base) var(--ease-enter) var(--d-delay); }
+.start-bar.is-pre { opacity: 0; transition: none; }
+.checks { margin-top: var(--s6); }
+.checks ul { margin: var(--s2) 0 0; padding-left: var(--s4); }
+.checks li + li { margin-top: var(--s1); }
+.evidence { margin: 0 0 var(--s4); padding: var(--s3) var(--s4); border: 1px solid var(--line-1); border-radius: var(--r-md); background: var(--canvas); }
+.evidence .from { display: flex; align-items: center; gap: var(--s1); font: var(--p4); color: var(--ink-2); margin: 0; }
+.evidence blockquote { margin: var(--s1) 0 0; font: var(--p3); color: var(--ink); }
+.evidence .hint { margin-top: var(--s1); }
+.type-says { font: var(--p3); color: var(--ink-2); margin-top: var(--s3); }
+.nil .why { display: block; font: var(--p4); color: var(--ink-2); margin-top: var(--s1); }
+/* M20/M21: only the value layer moves (the typed text), never the field box; fields the fill does not touch never animate */
+.field :is(.input, .select, .textarea, .affix input) { transition: color var(--d-fast) var(--ease-enter), -webkit-text-fill-color var(--d-fast) var(--ease-enter), border-color var(--d-micro) var(--ease-enter); }
+:is(.fill-wait, .fill-out) :is(.input, .select, .textarea, .affix input) { color: transparent; -webkit-text-fill-color: transparent; }
+.fill-wait :is(.input, .select, .textarea, .affix input) { transition: border-color var(--d-micro) var(--ease-enter); } /* hide at once, fade in on release */
+@media (prefers-reduced-motion: reduce) {
+  .cand-list { transition: none; transform: none; } .conflict-card, .conflict-card .chosen-ic, .start-in, .start-bar { transition: none; }
+  .field :is(.input, .select, .textarea, .affix input) { transition: border-color var(--d-micro) var(--ease-enter); }
+  :is(.fill-wait, .fill-out) :is(.input, .select, .textarea, .affix input) { color: var(--ink); -webkit-text-fill-color: currentColor; }
+}
+/* r12 B3: a conflict reads as one: warning icon + label-weight heading, a "Pick one" tag on the label and the rail row,
+   equal-height cards with both "Use this" buttons on one baseline */
+.conf-h { display: flex; align-items: flex-start; gap: var(--s2); margin: 0 0 var(--s3); font: var(--label); color: var(--ink); }
+.conf-h .ic { flex: none; color: var(--warning); }
+.conf-tag { margin-left: var(--s2); vertical-align: middle; }
+.conflict-card .btn { margin-top: auto; }
+[data-flag="conflict"] .meta, .acc-left[data-flag="conflict"] { background: var(--warning-bg); color: var(--ink); border-radius: var(--r-pill); padding: 0 var(--s2); }
+/* r12 B4: the approval sentence sits in the footer, right beside (desktop) or right above (phone) Send */
+.approve-ft { flex: 1; min-width: 0; margin: 0; font: var(--p3); color: var(--ink); text-align: right; }
+.hx-footer:has(.approve-ft) { height: auto; min-height: 72px; }
+.hx-footer:has(.approve-ft) .hx-footer-in { min-height: 72px; padding-top: var(--s3); padding-bottom: var(--s3); }
+body:has(.approve-ft) .rv { padding-bottom: calc(var(--ft-h, 72px) + var(--s6)); }
+@media (max-width: 768px) {
+  .hx-footer:has(.approve-ft) .hx-footer-in { flex-wrap: wrap; row-gap: var(--s2); }
+  .approve-ft { flex: 1 0 100%; order: -1; text-align: left; font: var(--p4); }
+  .approve-ft ~ .btn-send { margin-left: auto; }
+}
+/* Hifi.focusQuiet: a programmatic focus after a touch tap draws no keyboard ring (r12 B8) */
+[data-quiet-focus]:focus-visible, .acc-btn[data-quiet-focus]:focus-visible::after { outline: none; }
+.affix:has(input[data-quiet-focus]), .seg-opt:has(input[data-quiet-focus]), .ropt:has(input[data-quiet-focus]), .chk:has(input[data-quiet-focus]) .box, .rcard input[data-quiet-focus] + .rcard-box { outline: none; }
+</style>
+</head>
+<body>
+<a class="sr" href="#screen">Skip to content</a>
+<header class="hx-header" id="hdr">
+  <div class="hx-header-in">
+    <a class="hx-logo" href="#" data-act="to-list" aria-label="Bolto, offer letters"><img class="full" src="../shared/brand/full-ink.svg" alt=""><img class="mark" src="../shared/brand/brandmark-ink.svg" alt=""></a>
+    <nav class="hx-crumbs" aria-label="Breadcrumb" id="crumbs"></nav>
+    <div class="hx-save" id="saveState"></div>
+  </div>
+</header>
+<main id="screen"></main>
+<footer class="hx-footer" id="footer" hidden><div class="hx-footer-in" id="footerIn"></div></footer>
+<div id="hx-live" class="sr" aria-live="polite"></div>
+
+<script src="../shared/icons/icons.js"></script>
+<script src="../shared/hifi.js"></script>
+<script>
+'use strict';
+const {$, $$, esc, Motion, say, Ring, Accordion, Checklist, Toggletip, Segmented, busy, Demo, Fill, StatusLine, SaveMark} = Hifi;
+const I = (n, c) => Icons.svg(n, c);
+
+/* ===================== dummy data (brief p2), ported from the lo-fi ===================== */
+const TODAY = new Date(2026, 4, 25);            // prototype "today": Monday May 25, 2026
+const COMPANY = 'Acme Co.';
+const PEOPLE = ['Jordan Lee', 'Sam Patel'];
+const SENDERS = [{id:'sam', name:'Sam Patel', title:'Head of People', email:'sam.patel@example.com'}];
+const OFFICES = [{id:'ny', name:'New York office', state:'NY-NYC'}];
+const STATES = [['AL','Alabama'],['AK','Alaska'],['AZ','Arizona'],['AR','Arkansas'],['CA','California'],['CO','Colorado'],['CT','Connecticut'],['DE','Delaware'],['DC','District of Columbia'],['FL','Florida'],['GA','Georgia'],['HI','Hawaii'],['ID','Idaho'],['IL','Illinois'],['IN','Indiana'],['IA','Iowa'],['KS','Kansas'],['KY','Kentucky'],['LA','Louisiana'],['ME','Maine'],['MD','Maryland'],['MA','Massachusetts'],['MI','Michigan'],['MN','Minnesota'],['MS','Mississippi'],['MO','Missouri'],['MT','Montana'],['NE','Nebraska'],['NV','Nevada'],['NH','New Hampshire'],['NJ','New Jersey'],['NM','New Mexico'],['NY-NYC','New York City area (NYC, Nassau, Suffolk, Westchester)'],['NY-REST','New York (rest of state)'],['NC','North Carolina'],['ND','North Dakota'],['OH','Ohio'],['OK','Oklahoma'],['OR','Oregon'],['PA','Pennsylvania'],['RI','Rhode Island'],['SC','South Carolina'],['SD','South Dakota'],['TN','Tennessee'],['TX','Texas'],['UT','Utah'],['VT','Vermont'],['VA','Virginia'],['WA','Washington'],['WV','West Virginia'],['WI','Wisconsin'],['WY','Wyoming']];
+const PLACE = {'NY-NYC':'the New York City area', 'NY-REST':'New York outside the NYC area'};
+/* Overtime floors, 2026 (lo-fi, unchanged). salary: below it, overtime always applies. hourly: computer-job hourly floor.
+   comp: salary needed for the software option. mgr: salary needed for the manager and office-work options. */
+const FED = {salary:35568, hourly:27.63, comp:35568, mgr:35568};
+const FLOORS = {
+  'CA': {salary:70304, hourly:58.85, comp:122573.13, mgr:70304},
+  'WA': {salary:80168.40, hourly:59.96, comp:80168.40, mgr:80168.40},
+  'NY-NYC': {...FED, mgr:66300, mgrWeek:1275.00, fedKeys:['salary', 'hourly', 'comp']},
+  'NY-REST': {...FED, mgr:62353.20, mgrWeek:1199.10, fedKeys:['salary', 'hourly', 'comp']}
+};
+const DUTIES = {
+  software:'Works as a software engineer, programmer or systems analyst',
+  manage:'Manages the business or a department, directs 2 or more full-time people, and can hire and fire or has a real say in it',
+  admin:'Office work on running the business, where they make independent decisions on important matters',
+  study:'Work that needs advanced study, like law, medicine or accounting',
+  none:'None of these',
+  unsure:"I'm not sure"
+};
+/* Info-tip texts: spec 17 §5, word for word */
+const TIP = {
+  type:"W-2: an employee on your payroll. You withhold their taxes. 1099: an independent contractor. You generally don't withhold taxes for them.",
+  state:"Where they'll work from. Pay and overtime rules can depend on the state. It isn't shown in the letter.",
+  repay:'They pay the bonus back only if they resign or are let go for cause within this time.',
+  repayC:'They pay the bonus back only if they end this engagement within this time.',
+  hire:'Not in the letter. Bolto uses these to set them up in payroll after they sign.',
+  pg:'Everyone in a group is paid together, with the same settings. Bolto picks it from the pay type.',
+  flsa:'FLSA is the US law on overtime. Most employees get 1.5× their pay rate for hours past 40 in a week. Some jobs are exempt, depending on their pay and duties.',
+  i9:'A US form you and every new employee fill in to confirm they can work in the US. Bolto collects it after they sign.',
+  invite:'After they sign, Bolto emails them to set up their account and start onboarding.',
+  notes:'Bolto read this from your notes. Check it before you use it.'
+};
+
+/* ===================== v2 demo data (15-v2-decision-log.md, "Demo data"), ported from lofi-v2. Everything not in the brief is INVENTED ===================== */
+const POSTINGS = {
+  alex: {title:'Senior full-stack engineer', loc:'Remote', type:'Full-time', unit:'Salary', min:140000, max:170000,       // invented
+    lines:['Build features across our web app, front end to back end', 'Design and run the APIs our customers rely on', 'Review code and help set how the team ships'], // invented
+    duties:"You'll write, test and ship code across the front end and back end of our product."},                          // invented
+  priya: {title:'Product designer', loc:'Hybrid', office:'ny', type:'Contract', unit:'Hourly', min:90, max:100,         // invented
+    lines:['Design flows and screens for new product features', 'Run quick tests with customers and share what you learn', 'Work with engineers to ship the designs'], // invented
+    duties:"You'll design flows and screens for our product, working closely with engineers."}                            // invented
+};
+const ASHBY_ALEX = {name:'Alex Rivera', status:'approved',                                                              // approved: invented
+  offer:{first:'Alex', last:'Rivera', email:'alex.rivera@example.com', title:'Senior full-stack engineer', startDate:'2026-06-15', amount:'150,000'},
+  custom:{bonus:'10,000', bonusRepay:true, bonusMonths:'12'},                                                            // custom fields: invented
+  team:{reportsTo:'Jordan Lee'}};
+const ALEX_EMAIL = "Let's have Alex start June 22";                                                                      // invented
+const PRIYA_LINK = 'https://jobs.ashbyhq.com/acme/product-designer';                                                     // invented
+const PRIYA_NOTES = 'Priya Shah, contractor through Dec 31. $95/hr. Starts Jul 1. Hybrid in the NY office. Jordan is her contact and will set her weekly schedule.'; // invented
+/* name = the section badge (17 §5: "Ashby", "Posting", "Your notes"; no third-party logos) */
+const SRC = {
+  offer:   {line:() => `From ${S.cand || 'the candidate'}'s offer in Ashby, approved`, short:'From the Ashby offer', name:'Ashby', badge:'Ashby', icon:'users', use:"Use Ashby's value"},
+  team:    {line:() => 'From the hiring team in Ashby', short:'From the hiring team in Ashby', name:'Ashby', badge:'Ashby', icon:'users', use:"Use Ashby's value"},
+  posting: {line:() => 'From the job posting', short:'From the job posting', name:'The posting', badge:'Posting', icon:'file-text', use:"Use the posting's value"},
+  settings:{line:() => 'From company settings', short:'From company settings', name:'Company settings', badge:'Company settings', icon:'building-2', use:'Use the company setting'},
+  notes:   {line:() => 'Read from your notes', short:'Read from your notes', name:'Your notes', badge:'Your notes', icon:'sticky-note', use:"Use the notes' value"},
+  email:   {line:() => "Read from Jordan's email", short:"Read from Jordan's email", name:"Jordan's email", badge:"Jordan's email", icon:'mail', use:"Use the email's value"}
+};
+/* the lo-fi's source groups (which fields a section's one label speaks for) */
+const SRCSEC = {cand:['first', 'last', 'email'], role:['title', 'work', 'startDate', 'endDate', 'reportsTo', 'location', 'state', 'workplace', 'department'],
+  pay:['payType', 'amount', 'bonus', 'bonusRepay', 'bonusMonths', 'equity'], terms:['expiry', 'sender']};
+const DSHORT = {software:'software engineer', manage:'manages the business or a department', admin:'office work on running the business', study:'work that needs advanced study', none:'none of these'};
+
+/* ===================== state ===================== */
+function plusDays(d, n){ const x = new Date(d); x.setDate(x.getDate() + n); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`; }
+const WF = {saveFail:false, sendFail:false, ashbyDown:false, fileBad:false, noMatch:false, atsOff:false};
+function blankF(){
+  return {empType:'', first:'', last:'', email:'', title:'', work:'', startDate:'', endDate:'', reportsTo:'', location:'', state:'', workplace:'', department:'',
+    payType:'', amount:'', bonusOpen:false, bonus:'', bonusRepay:false, bonusMonths:'', equityOpen:false, equity:'',
+    payrollGroup:'', duties:'', invite:true, expiry:plusDays(TODAY, 7), sender:'sam', note:''};
+}
+let S;
+function fresh(){
+  S = {screen:'offer', f:blankF(), style:'Standard', pgOverride:false, otBasis:'', otMode:'', blurErr:new Set(), draft:false, save:'', savedAt:'', newOffer:true,
+       errItems:null, lastN:null, otSaid:null, sent:false, sendErr:false, hireHTML:'', saveT:null, lastField:null, view:'edit', fresh:new Map(),
+       /* v2: where each value came from, read values waiting on a click, two-source conflicts, the fill status line */
+       src:{}, prop:{}, conf:{}, typed:{}, ckSaid:null, pasteMsg:'', posting:null, notes:'', notesType:'', cand:'', q:'', paste:'',
+       fill:{text:'', pre:null, undo:false, retry:null, busy:false}, fillT:null, filled:false, fillOpened:false, filling:false, active:-1, bar:false, barFrom:'', startOpen:false};
+}
+fresh();
+
+/* ===================== helpers (lo-fi) ===================== */
+const num = v => { const s = String(v ?? '').replace(/[$,\s]/g, ''); if(!/^\d+(\.\d+)?$/.test(s)) return null; return parseFloat(s); };
+const money = n => '$' + Number(n).toLocaleString('en-US', {minimumFractionDigits: Number.isInteger(n) ? 0 : 2, maximumFractionDigits: 2});
+const money0 = n => '$' + Math.round(Number(n)).toLocaleString('en-US');
+const iso2d = iso => { const [y,m,d] = iso.split('-').map(Number); return new Date(y, m-1, d); };
+const fdate = iso => iso ? iso2d(iso).toLocaleDateString('en-US', {month:'long', day:'numeric', year:'numeric'}) : '';
+const sdate = iso => iso ? iso2d(iso).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}) : '';
+const md = d => d.toLocaleDateString('en-US', {month:'short', day:'numeric'});
+const isEmp = () => S.f.empType === 'ft' || S.f.empType === 'pt';
+const isCon = () => S.f.empType === 'c';
+const who = () => S.f.first.trim();
+const poss = () => who() ? who() + "'s " : 'their ';
+const fullName = () => (S.f.first + ' ' + S.f.last).trim();
+const validAmount = () => (num(S.f.amount) || 0) > 0;
+const validBonus = () => (num(S.f.bonus) || 0) > 0;
+const validMonths = () => /^\d{1,3}$/.test(S.f.bonusMonths.trim()) && +S.f.bonusMonths > 0;
+const nonPos = v => { const s = String(v ?? '').replace(/[$,\s]/g, ''); return /^-?\d+(\.\d+)?$/.test(s) && parseFloat(s) <= 0; };
+const validEmail = () => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(S.f.email.trim());
+const sender = () => SENDERS.find(s => s.id === S.f.sender) || SENDERS[0];
+const office = () => OFFICES.find(o => o.id === S.f.workplace);
+const stateName = code => (STATES.find(s => s[0] === code) || [,''])[1];
+const place = code => PLACE[code] || stateName(code);
+const initials = n => n.split(/\s+/).filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase();
+const EMP = {ft:['Full-time', 'W-2'], pt:['Part-time', 'W-2'], c:['Contractor', '1099']};
+const empLabel = () => EMP[S.f.empType] ? EMP[S.f.empType].join(' / ') : '';
+
+/* ===================== overtime (FLSA), lo-fi unchanged ===================== */
+function workState(){ return S.f.location === 'Remote' ? S.f.state : ((office() || {}).state || ''); }
+function otNeeds(){
+  const n = [];
+  if(!S.f.location) n.push('location');
+  else if(S.f.location === 'Remote'){ if(!S.f.state) n.push('state'); }
+  else if(!S.f.workplace) n.push('workplace');
+  if(!S.f.payType) n.push('payType');
+  if(!validAmount()) n.push('amount');
+  return n;
+}
+function ot(){
+  if(!isEmp()) return {mode:'na'};
+  const need = otNeeds();
+  if(need.length) return {mode:'wait', first:need[0]};
+  const st = workState(), fl = FLOORS[st] || FED, amt = num(S.f.amount), wh = place(st);
+  const rule = key => !FLOORS[st] ? ` under the federal rule (${wh}'s own rules aren't checked)`
+    : (fl.fedKeys || []).includes(key) ? ` under the federal rule (for ${wh}, only the floor for managing and office work is checked)` : ` in ${wh}`;
+  if(S.f.payType === 'Hourly'){
+    if(amt < fl.hourly) return {mode:'auto', why:`${money(amt)} an hour is below ${money(fl.hourly)}, the lowest hourly pay for the one hourly exemption Bolto checks, computer jobs${rule('hourly')}.`};
+    return {mode:'hourly', hint:`Bolto checks one hourly exemption, for computer jobs, at ${money(fl.hourly)} an hour or more${rule('hourly')}.`};
+  }
+  if(amt < fl.salary) return {mode:'auto', why:`${money(amt)} a year is below ${money(fl.salary)}, the lowest salary for the overtime exemptions Bolto checks${rule('salary')}.`};
+  const opts = [], cut = [];
+  if(amt >= fl.comp) opts.push('software'); else cut.push(`Software work skips overtime${rule('comp')} only at ${money(fl.comp)} a year or more.`);
+  if(amt >= fl.mgr) opts.push('manage', 'admin');
+  else cut.push(`Managing and office work skip overtime${rule('mgr')} only at ${fl.mgrWeek ? '$' + fl.mgrWeek.toLocaleString('en-US', {minimumFractionDigits:2}) + ' a week (' + money(fl.mgr) + ' a year)' : money(fl.mgr) + ' a year'} or more.`);
+  opts.push('study', 'none', 'unsure');
+  return {mode:'salary', opts, hint:cut.join(' ')};
+}
+function otFinal(){
+  const o = ot();
+  if(o.mode === 'auto') return false;
+  if(o.mode !== 'hourly' && o.mode !== 'salary') return null;
+  const d = S.f.duties;
+  if(!d || d === 'unsure') return null;
+  if(o.mode === 'hourly') return d === 'software' ? true : (d === 'none' ? false : null);
+  if(!o.opts.includes(d)) return null;
+  return d !== 'none';
+}
+const otWords = v => v ? 'No overtime pay (exempt)' : 'Gets overtime pay (non-exempt)';
+const basisKey = () => [S.f.payType, num(S.f.amount), S.f.location, S.f.state, S.f.workplace].join('|');
+const derivedGroup = () => S.f.payType === 'Hourly' ? 'US Hourly' : (S.f.payType === 'Salary' ? 'US Salaried' : '');
+
+/* ===================== what's missing: the one list behind the rail, the count and the error summary ===================== */
+function missing(){
+  const out = [], f = S.f, add = (k, msg) => out.push({k, msg});
+  if(!f.empType) add('empType', 'Select the worker type');
+  if(!f.first.trim()) add('first', 'Enter their first name');
+  if(!f.last.trim()) add('last', 'Enter their last name');
+  if(!f.email.trim()) add('email', 'Enter their email address');
+  else if(!validEmail()) add('email', 'Enter an email address in the correct format, like name@example.com');
+  if(!f.title.trim()) add('title', 'Enter the job title');
+  if(!f.startDate) add('startDate', 'Enter the start date');
+  if(isCon() && !f.endDate) add('endDate', 'Enter the date the contract ends');
+  else if(isCon() && f.startDate && f.endDate <= f.startDate) add('endDate', 'The contract must end after it starts');
+  if(!f.reportsTo) add('reportsTo', isCon() ? 'Select their point of contact' : 'Select who they report to');
+  if(!f.location) add('location', 'Select where they work');
+  else if(f.location === 'Remote'){ if(!isCon() && !f.state) add('state', 'Select the state they will work from'); }
+  else if(!f.workplace) add('workplace', 'Select the workplace');
+  if(!f.payType) add('payType', S.src.amount && S.src.amount.from === 'offer' ? "A year or an hour? Ashby's offer has no unit" : 'Select salary or hourly');
+  if(payPair()){ /* the pay conflict carries amount and unit together */ }
+  else if(!f.amount.trim()) add('amount', 'Enter the pay amount');
+  else if(nonPos(f.amount)) add('amount', 'Enter a pay amount above 0');
+  else if(!validAmount()) add('amount', 'Enter the pay amount as a number, like 150,000');
+  if(f.bonusOpen){
+    if(!f.bonus.trim()) add('bonus', 'Enter the signing bonus amount');
+    else if(nonPos(f.bonus)) add('bonus', 'Enter a bonus amount above 0');
+    else if(!validBonus()) add('bonus', 'Enter the signing bonus as a number, like 10,000');
+    if(f.bonusRepay && nonPos(f.bonusMonths)) add('bonusMonths', 'Enter a number of months above 0');
+    else if(f.bonusRepay && !validMonths()) add('bonusMonths', 'Enter the number of months for repaying the bonus');
+  }
+  if(f.equityOpen && !f.equity.trim()) add('equity', 'Enter the equity as it should read in the letter');
+  /* v2 (lo-fi N5): the overtime question counts once an employee type is chosen, so "N left" holds still as the form fills */
+  if(isEmp() && ot().mode !== 'wait' && otFinal() === null) add('duties', `Answer the overtime question${who() ? ' for ' + who() : ''}${f.duties === 'unsure' ? ', or check with whoever runs payroll' : ''}`);
+  if(!f.expiry) add('expiry', 'Enter when the offer expires');
+  else if(iso2d(f.expiry) < TODAY) add('expiry', "The offer can't expire before today");
+  /* v2: a conflict or a value read from notes replaces the plain "enter it" message */
+  out.forEach(m => {
+    const c = S.conf[m.k], p = S.prop[m.k];
+    if(c) m.msg = `Pick the ${c.pair ? 'pay' : (GAPLABEL[m.k] || m.k).toLowerCase()}: ${c.opts[0].label} and ${c.opts[1].label} disagree`;
+    else if(p) m.msg = `Check the ${(GAPLABEL[m.k] || m.k).toLowerCase()} your notes give: “${p.quote}”`;
+  });
+  return out;
+}
+
+/* ===================== v2: "Check this", never blocks and never counts (15-v2 log, Needs you vs Check this) ===================== */
+function checks(){
+  const f = S.f, out = [], pst = S.posting;
+  const a = num(f.amount);
+  if(pst && a && f.payType === pst.unit && (a < pst.min || a > pst.max))
+    out.push({k:'amount', msg:`${money(a)} is outside the posted range, ${money(pst.min)} to ${money(pst.max)} ${pst.unit === 'Hourly' ? 'an hour' : 'a year'}`});
+  const m = S.notes.match(/will set (?:her|his|their) weekly schedule/i);
+  if(m && !isEmp()) out.push({k:'empType', msg:`Your notes mention “${m[0]}”. Who controls the work is one factor the DOL weighs; no single factor decides.`});
+  if(f.expiry && f.startDate && f.expiry > f.startDate) out.push({k:'expiry', msg:`The offer expires after the start date (${fdate(f.startDate)})`});
+  return out;
+}
+function checksHTML(){
+  const c = checks(); if(!c.length) return '';
+  return `<section class="checks callout callout-warning" aria-labelledby="ck-h">${I('triangle-alert')}<div><h2 class="callout-t" id="ck-h">Check this</h2><p>These don't stop you sending.</p>
+    <ul>${c.map(i => `<li><a href="#f-${i.k}" data-go="${i.k}">${esc(i.msg)}</a></li>`).join('')}</ul></div></section>`;
+}
+function updateChecks(commit){
+  const s = $('#checkSlot'); if(!s) return; const h = checksHTML(); if(s.dataset.html !== h){ s.innerHTML = h; s.dataset.html = h; }
+  const now = checks(), keys = new Set(now.map(i => i.k));
+  if(S.ckSaid === null){ S.ckSaid = keys; return; }
+  if(!commit) return;
+  now.filter(i => !S.ckSaid.has(i.k)).forEach(i => say(`Check this: ${i.msg}${/\.$/.test(i.msg) ? '' : '.'}`));
+  S.ckSaid = keys;
+}
+
+/* ===================== v2: source labels (15-v2 log, Source labels; 17 §5: one badge per section) ===================== */
+function fmtV(k, v){
+  if(k === 'amount' || k === 'bonus') return money(num(v));
+  if(k === 'startDate' || k === 'endDate' || k === 'expiry') return fdate(v);
+  if(k === 'workplace') return (OFFICES.find(o => o.id === v) || {}).name || v;
+  if(k === 'bonusMonths') return `${v} months`;
+  if(k === 'bonusRepay') return v ? 'repaid if they leave early' : 'not repaid';
+  if(k === 'payType') return v === 'Hourly' ? 'an hour' : 'a year';
+  if(k === 'work') return 'the posting’s list';
+  return String(v);
+}
+const same = (k, a, b) => (k === 'amount' || k === 'bonus') ? num(a) === num(b) : String(a ?? '').trim() === String(b ?? '').trim();
+const changed = k => S.src[k] && !same(k, S.f[k], S.src[k].val);
+const srcSecOf = k => Object.keys(SRCSEC).find(s => SRCSEC[s].includes(k));
+function secSrc(sec){
+  if(!sec || !SRCSEC[sec]) return '';
+  const n = {};
+  /* a section holding a value you typed gets no section badge (it would label your value); its filled fields label themselves */
+  if(SRCSEC[sec].some(k => !S.src[k] && !S.conf[k] && S.typed[k] && String(S.f[k] ?? '').trim() !== '')) return '';
+  SRCSEC[sec].forEach(k => { const s = S.src[k]; if(s && s.kind === 'copied' && !s.note && k !== 'work') n[s.from] = (n[s.from] || 0) + 1; });
+  return Object.keys(n).sort((a, b) => n[b] - n[a])[0] || '';
+}
+function badgeInner(sec){ const f = secSrc(sec); return f ? `${I(SRC[f].icon)}<span aria-hidden="true">${esc(SRC[f].badge)}</span><span class="sr">${esc(SRC[f].line())}</span>` : ''; }
+function badgeHTML(sec){ return SRCSEC[sec] ? `<span class="src-badge" id="sl-${sec}"${secSrc(sec) ? '' : ' hidden'}>${badgeInner(sec)}</span>` : ''; }
+function srcParts(k){
+  const p = S.prop[k];
+  if(p) return {t:`Your notes say “${esc(p.quote)}”. Bolto won't fill pay from notes without you.`, b:`${tip('Read from notes', TIP.notes)}<button type="button" class="linkbtn" data-use="${k}">Use ${esc(p.label)}</button>`};
+  const s = S.src[k]; if(!s) return {t:'', b:''};
+  if(changed(k)){
+    const was = s.from === 'settings' ? `Company setting: ${k === 'expiry' ? '7 days from today' : esc(k === 'sender' ? (SENDERS.find(x => x.id === s.val) || {}).name || s.val : fmtV(k, s.val))}`
+      : k === 'payType' ? `${SRC[s.from].name} gives pay ${s.val === 'Hourly' ? 'by the hour' : 'per year'}`
+      : `${SRC[s.from].name} had ${esc(fmtV(k, s.val))}`;
+    return {t:`You changed this. ${was}`, b:`<button type="button" class="linkbtn" data-revert="${k}">${SRC[s.from].use}</button>`};
+  }
+  if(k === 'work' && s.from === 'posting') return {t:'Read from the job posting. Edit it.', b:''};
+  if(s.kind === 'read') return {t:`${SRC[s.from].short}: “${esc(s.quote)}”`, b:s.from === 'notes' ? tip('Read from notes', TIP.notes) : ''};
+  if(s.note) return {t:esc(s.note), b:''};
+  if(s.from !== secSrc(srcSecOf(k))) return {t:SRC[s.from].short, b:''};
+  return {t:'', b:''};
+}
+function srcSlot(k){
+  if(!S.src[k] && !S.prop[k]) return '';
+  const p = srcParts(k);
+  return `<div class="src-slot" id="ss-${k}"><p class="src" id="src-${k}">${p.t}</p>${p.b}</div>`;
+}
+function srcIds(k){
+  const ids = [];
+  if(S.src[k] || S.prop[k]) ids.push('src-' + k);
+  const s = S.src[k], sec = srcSecOf(k);
+  if(s && s.kind === 'copied' && !s.note && k !== 'work' && s.from === secSrc(sec)) ids.push('sl-' + sec);
+  return ids;
+}
+function updateSrc(k){ const el = $('#ss-' + k); if(!el) return; const p = srcParts(k); const h = `<p class="src" id="src-${k}">${p.t}</p>${p.b}`; if(el.dataset.html !== h){ el.innerHTML = h; el.dataset.html = h; } }
+function updateSrcLines(){
+  Object.keys(SRCSEC).forEach(sec => {
+    const b = $('#sl-' + sec); if(!b) return;
+    const want = secSrc(sec), inner = badgeInner(sec);
+    if(b.dataset.html === inner) return;
+    b.innerHTML = inner; b.dataset.html = inner; b.hidden = !want;
+    SRCSEC[sec].forEach(k => {
+      updateSrc(k);
+      const el = document.getElementById('f-' + k); if(!el || !el.matches('input, select, textarea')) return;
+      const parts = (el.dataset.db || '').split(' ').filter(x => x && x !== 'sl-' + sec);
+      if(srcIds(k).includes('sl-' + sec)) parts.push('sl-' + sec);
+      const db = parts.join(' '); el.dataset.db = db;
+      db ? el.setAttribute('aria-describedby', db) : el.removeAttribute('aria-describedby');
+    });
+  });
+}
+function postSays(){
+  const p = S.posting, bits = [];
+  if(p) bits.push(`The posting says ${p.type}.`);
+  if(S.notesType) bits.push(`Your notes say “${S.notesType}”.`);
+  return bits.join(' ');
+}
+const msgFor = k => (missing().find(m => m.k === k) || {}).msg || '';
+
+/* ===================== sections: the six accordions and the checklist behind them ===================== */
+const SECTIONS = [
+  {id:'type', title:'Worker type'}, {id:'cand', title:'Candidate'}, {id:'role', title:'Role'},
+  {id:'pay', title:'Pay'}, {id:'hire', title:'Hire setup'}, {id:'terms', title:'Offer terms'}];
+const KEYS = {type:['empType'], cand:['first', 'last', 'email'], role:['title', 'startDate', 'endDate', 'reportsTo', 'location', 'state', 'workplace'],
+  pay:['payType', 'amount', 'bonus', 'bonusMonths', 'equity'], hire:['duties'], terms:['expiry']};
+/* payroll group and invite live in Hire setup but are never "missing", so they are not in KEYS (the counts) */
+const secOf = k => ({payrollGroup:'hire', invite:'hire'})[k] || (Object.entries(KEYS).find(([, ks]) => ks.includes(k)) || ['type'])[0];
+function applies(k){
+  const f = S.f;
+  if(k === 'endDate') return isCon();
+  if(k === 'state') return f.location === 'Remote' && !isCon();
+  if(k === 'workplace') return f.location === 'Hybrid' || f.location === 'On-site';
+  if(k === 'bonus') return f.bonusOpen;
+  if(k === 'bonusMonths') return f.bonusOpen && f.bonusRepay;
+  if(k === 'equity') return f.equityOpen;
+  if(k === 'duties') return isEmp() && ['hourly', 'salary'].includes(ot().mode);
+  return true;
+}
+/* The hire-setup wait line names only what overtime still needs (from otNeeds) */
+const NEEDWORD = {location:'where they work', state:'the work state', workplace:'the workplace', payType:'salary or hourly', amount:'the pay amount'};
+function waitLine(){
+  const w = otNeeds().map(k => NEEDWORD[k]);
+  return `Fill in ${w.length > 1 ? w.slice(0, -1).join(', ') + ' and ' + w[w.length - 1] : w[0]} first.`;
+}
+function secStatus(id, miss = missing()){
+  const gone = new Set(miss.map(m => m.k)), errs = new Set((S.errItems || []).map(i => i.k));
+  if(id === 'hire'){
+    if(!S.f.empType) return {state:'wait', frac:0, left:0, label:'The rest depends on the worker type.'};
+    if(isCon()) return {state:'done', frac:1, left:0};
+    if(ot().mode === 'wait') return {state:'wait', frac:0, left:0, label:waitLine()};
+  }
+  const ks = KEYS[id].filter(applies), left = ks.filter(k => gone.has(k)).length;
+  const err = ks.some(k => gone.has(k) && errs.has(k)), conf = ks.some(k => S.conf[k]);
+  const st = {state: err ? 'error' : left === 0 ? 'done' : left < ks.length ? 'progress' : 'todo', frac: ks.length ? (ks.length - left) / ks.length : 1, left};
+  return conf ? {...st, flag:'conflict', meta:'Pick one', label:`${left} left, two sources disagree`} : st;
+}
+function summary(id){
+  const f = S.f;
+  if(id === 'type') return empLabel();
+  if(id === 'cand') return [fullName(), f.email.trim()].filter(Boolean).join(' · ');
+  if(id === 'role') return [f.title.trim(), sdate(f.startDate), f.location ? (f.location === 'Remote' ? (isEmp() && f.state ? 'Remote, ' + stateName(f.state) : 'Remote') : `${f.location}${office() ? ', ' + office().name : ''}`) : ''].filter(Boolean).join(' · ');
+  if(id === 'pay') return [validAmount() && f.payType ? `${money(num(f.amount))} ${f.payType === 'Hourly' ? 'an hour' : 'a year'}` : '', f.bonusOpen && validBonus() ? money(num(f.bonus)) + ' bonus' : '', f.equityOpen && f.equity.trim() ? 'Equity' : ''].filter(Boolean).join(' · ');
+  if(id === 'hire'){ if(isCon()) return f.invite ? 'Invited to Bolto after signing' : 'Not invited to Bolto automatically';
+    const v = otFinal(); return [isEmp() ? f.payrollGroup : '', v === null ? '' : otWords(v)].filter(Boolean).join(' · '); }
+  if(id === 'terms') return [f.expiry ? 'Expires ' + sdate(f.expiry) : '', sender().name].filter(Boolean).join(' · ');
+  return '';
+}
+
+/* ===================== field builders (hi-fi markup on the lo-fi contract: ids f-*, e-*, data-f) ===================== */
+const tip = (term, text) => Toggletip.html(term, text);
+function errP(k){ return `<div class="err" hidden><div class="hx-reveal-in"><p id="e-${k}"></p></div></div>`; }
+function dbAttr(ids){ const v = ids.filter(Boolean).join(' '); return v ? ` aria-describedby="${v}" data-db="${v}"` : ' data-db=""'; }
+function lblRow(k, label, o = {}){ return `<div class="lbl"><label for="f-${k}" id="l-${k}">${label}${o.optional ? ' <span class="opt">(optional)</span>' : ''}</label>${o.tip || ''}</div>`; }
+/* v2 conflict (M22): two cards, each with its source, its value and "Use this"; nothing is chosen until a button is pressed,
+   arrow keys never choose (C9), and the letter keeps a gap until then */
+const shortDate = iso => iso2d(iso).toLocaleDateString('en-US', {month:'long', day:'numeric'});
+const payPair = () => !!(S.conf.payType && S.conf.payType.pair);
+const payShow = v => v.amount && v.payType ? `${money(num(v.amount))} ${v.payType === 'Hourly' ? 'an hour' : 'a year'}` : v.payType ? v.payType : `${money(num(v.amount))}, no unit`;
+function optIcon(o){ const s = o.src && (o.src.from ? o.src : (o.src.amount || o.src.payType)); return s ? SRC[s.from].icon : 'pencil'; }
+function conflictField(k, label){
+  const c = S.conf[k], show = v => c.pair ? payShow(v) : (k === 'startDate' || k === 'endDate') ? shortDate(v) : k === 'payType' ? v : fmtV(k, v);
+  const what = c.pair ? 'pay' : esc((GAPLABEL[k] || k).toLowerCase());
+  return `<div class="field" data-f="${k}"><fieldset class="conflict-wrap" id="f-${k}" aria-describedby="ch-${k}" data-db="ch-${k}"><legend>${c.pair ? 'Pay' : label}<span class="tag tag-warning conf-tag" aria-hidden="true">Pick one</span></legend>
+    <div class="conf-body hx-reveal is-settled" data-shown="true"><div class="hx-reveal-in"><p class="conf-h" id="ch-${k}">${I('triangle-alert')}<span>${esc(c.opts[0].label)} and ${esc(c.opts[1].label)} disagree.</span></p>${errP(k)}
+    <div class="conflict">${c.opts.map((o, i) => `<div class="conflict-card" id="cc-${k}-${i}">
+      <p class="who">${I(optIcon(o))}<span>${esc(o.label)}</span><span class="chosen-ic">${I('circle-check')}</span></p>
+      <p class="val">${esc(show(o.val))}</p>${o.quote ? `<p class="q" id="cq-${k}-${i}">“${esc(o.quote)}”</p>` : ''}
+      <button type="button" class="btn btn-secondary btn-sm" data-choose="${k}" data-i="${i}"${o.quote ? ` aria-describedby="cq-${k}-${i}"` : ''}>Use this<span class="sr"> ${what}: ${esc(show(o.val))}, ${esc(o.label)}</span></button></div>`).join('')}</div></div></div></fieldset></div>`;
+}
+function textField(k, label, o = {}){
+  if(S.conf[k]) return conflictField(k, label);
+  const input = `<input class="${o.wrap ? '' : 'input'}${o.short ? ' short' : ''}" id="f-${k}" name="${k}" type="${o.type || 'text'}" value="${esc(S.f[k])}" autocomplete="${o.ac || 'off'}"${o.im ? ` inputmode="${o.im}"` : ''}${o.type === 'email' ? ' spellcheck="false"' : ''}${dbAttr([o.hint && 'h-' + k, ...(o.db || []), ...srcIds(k)])}>`;
+  return `<div class="field" data-f="${k}">${lblRow(k, label, o)}${errP(k)}${o.wrap ? o.wrap(input) : input}${o.hint ? `<p class="hint num" id="h-${k}">${o.hint}</p>` : ''}${srcSlot(k)}${o.after || ''}</div>`;
+}
+function selectField(k, label, opts, o = {}){
+  if(S.conf[k]) return conflictField(k, label);
+  const ph = o.noChoose ? '' : `<option value=""${S.f[k] ? '' : ' selected'}>Choose</option>`;
+  const av = o.avatar ? `<span class="avatar${S.f[k] ? '' : ' empty'}" id="av-${k}" aria-hidden="true">${esc(initials(o.avatarName ? o.avatarName() : S.f[k]))}</span>` : '';
+  return `<div class="field" data-f="${k}">${lblRow(k, label, o)}${errP(k)}
+    <div class="sel-wrap${o.avatar ? ' has-avatar' : ''}">${av}<select class="select" id="f-${k}" name="${k}"${dbAttr([o.hint && 'h-' + k, ...srcIds(k)])}>${ph}${opts.map(([v, l]) => `<option value="${esc(v)}"${S.f[k] === v ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select>${I('chevron-down')}</div>
+    ${o.hint ? `<p class="hint" id="h-${k}">${o.hint}</p>` : ''}${srcSlot(k)}</div>`;
+}
+function areaField(k, label, o = {}){
+  return `<div class="field" data-f="${k}">${lblRow(k, label, o)}${errP(k)}<textarea class="textarea" id="f-${k}" name="${k}" rows="4"${dbAttr([o.hint && 'h-' + k, ...srcIds(k)])}>${esc(S.f[k])}</textarea>${o.hint ? `<p class="hint" id="h-${k}">${o.hint}</p>` : ''}${srcSlot(k)}</div>`;
+}
+const TICK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+function checkField(k, label, o = {}){
+  const db = srcIds(k).join(' ');
+  return `<div class="field" data-f="${k}"><div class="chk-row"><label class="chk"><input type="checkbox" id="f-${k}" name="${k}"${S.f[k] ? ' checked' : ''}${db ? ` aria-describedby="${db}" data-db="${db}"` : ''}><span class="box" aria-hidden="true">${TICK}</span><span id="l-${k}">${label}</span></label>${o.tip || ''}</div>${srcSlot(k)}</div>`;
+}
+function segField(k, label, opts, o = {}){
+  if(S.conf[k]) return conflictField(k, label);
+  return `<div class="field" data-f="${k}"><div class="lbl" id="l-${k}">${label}</div>${errP(k)}<div id="f-${k}" data-db="" class="seg-host">${Segmented.html(k, opts, S.f[k], {labelledby:'l-' + k, idp:'f-' + k})}</div>${srcSlot(k)}</div>`;
+}
+const affix = (pre, suf, o = {}) => i => `<div class="affix${o.short ? ' short' : ''}">${pre ? `<span class="pre" aria-hidden="true">${pre}</span>` : ''}${i}${suf !== undefined ? `<span class="suf" id="u-${o.k}">${suf}</span>` : ''}</div>`;
+function accHTML(id, title, body, o = {}){
+  return `<section class="acc" data-sec="${id}" id="sec-${id}">
+    <div class="acc-head"><h2><button type="button" class="acc-btn" aria-expanded="true" aria-controls="secp-${id}">${Ring.html(id)}
+      <span class="acc-title"><span class="acc-name" id="secn-${id}">${title}</span><span class="acc-sum"></span></span>
+      <span class="acc-left" data-left-for="${id}"></span></button></h2>
+      <span class="acc-aside">${o.aside || ''}</span><span class="acc-chev" aria-hidden="true">${I('chevron-down')}</span></div>
+    <div class="acc-panel" id="secp-${id}"><div class="acc-clip"><div class="acc-inner">${body}</div></div></div></section>`;
+}
+
+/* ===================== screen: offer ===================== */
+function ledeText(){ return WF.saveFail ? 'Fill in what you know.' : 'Saves as you go. Come back anytime.'; }
+function workHint(){ return isCon() ? 'One service per line.' : 'One duty per line.'; }
+function dayHint(iso){ return iso ? iso2d(iso).toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric'}) : ''; }
+function expiryHint(){
+  if(!S.f.expiry) return '';
+  const d = iso2d(S.f.expiry), n = Math.round((d - TODAY) / 864e5);
+  return `${dayHint(S.f.expiry)} · ${n === 0 ? 'today' : n === 1 ? 'tomorrow' : n > 1 ? n + ' days from today' : 'in the past'}`;
+}
+function secBody(id){
+  const says = postSays();
+  if(id === 'type') return `<div class="field" data-f="empType">${errP('empType')}<div class="rcards" role="radiogroup" id="f-empType" aria-labelledby="secn-type"${dbAttr([says && 'ty-says'])}>
+    ${[['ft', 'briefcase'], ['pt', 'clock-3'], ['c', 'file-pen-line']].map(([v, ic], i) => `<label class="rcard"><input type="radio" name="empType" value="${v}" id="f-empType-${i}"${S.f.empType === v ? ' checked' : ''}${says ? ' aria-describedby="ty-says"' : ''}>
+      <span class="rcard-box"><span class="rcard-top"><span class="rcard-icon">${I(ic)}</span><span class="dot" aria-hidden="true"></span></span><span class="rcard-icon m">${I(ic)}</span>
+      <span class="rcard-t">${EMP[v][0]}<span>${EMP[v][1]}</span></span></span></label>`).join('')}</div>${says ? `<p class="type-says" id="ty-says">${esc(says)}</p>` : ''}</div>`;
+  if(id === 'hire') return '<div id="hireBody"></div>';
+  const cand = `<div class="row2">${textField('first', 'First name', {ac:'off'})}${textField('last', 'Last name')}</div>${textField('email', 'Email', {type:'email'})}`;
+  const role = textField('title', 'Job title')
+    + areaField('work', "What they'll do", {optional:true, hint:workHint()})
+    + textField('startDate', 'Start date', {type:'date', hint:dayHint(S.f.startDate)})
+    + `<div data-when="con">${textField('endDate', 'Contract ends', {type:'date', hint:dayHint(S.f.endDate)})}</div>`
+    + selectField('reportsTo', isCon() ? 'Point of contact' : 'Reports to', PEOPLE.map(p => [p, p]), {avatar:true})
+    + segField('location', 'Where they work', [['Remote', 'Remote'], ['Hybrid', 'Hybrid'], ['On-site', 'On-site']])
+    + `<div data-when="remote">${selectField('state', 'Work state', STATES, {tip:tip('Work state', TIP.state)})}</div>`
+    + `<div data-when="office">${selectField('workplace', 'Workplace', OFFICES.map(o => [o.id, o.name]))}</div>`
+    + textField('department', 'Department', {optional:true});
+  const pay = segField('payType', 'Salary or hourly', [['Salary', 'Salary'], ['Hourly', 'Hourly']])
+    + (payPair() ? '' : textField('amount', 'Amount <span class="sr">in US dollars</span>', {im:'decimal', db:['u-amount', 'warn-amount'], wrap:affix('$', '', {k:'amount'}), after:`<div class="warn callout callout-warning" id="warn-amount" hidden>${I('triangle-alert')}<p></p></div>`}))
+    + `<div id="addWrap"><div class="hx-reveal-in"><div class="addrow"><button type="button" class="btn btn-add" id="bonusAdd" aria-expanded="false" aria-controls="bonusPanel">${I('plus')}Add signing bonus</button>
+       <button type="button" class="btn btn-add" id="equityAdd" aria-expanded="false" aria-controls="equityPanel">${I('plus')}Add equity</button></div></div></div>
+      <div id="bonusPanel" hidden><div class="hx-reveal-in"><fieldset class="sub-card" aria-labelledby="bonusH"><div class="sub-head"><h3 id="bonusH">Signing bonus</h3><button type="button" class="linkbtn quiet" id="bonusRemove">${I('x', 'ic-sm')}Remove<span class="sr"> signing bonus</span></button></div>
+        ${textField('bonus', 'Amount <span class="sr">in US dollars</span>', {im:'decimal', wrap:affix('$', undefined, {short:true})})}
+        ${checkField('bonusRepay', 'Repaid if they leave early', {tip:tip('Repaid if they leave early', TIP.repay)})}
+        <div data-when="repay">${textField('bonusMonths', 'Within how many months', {im:'numeric', wrap:affix('', 'months', {short:true, k:'bonusMonths'}), db:['u-bonusMonths']})}</div></fieldset></div></div>
+      <div id="equityPanel" hidden><div class="hx-reveal-in"><fieldset class="sub-card" aria-labelledby="equityH"><div class="sub-head"><h3 id="equityH">Equity</h3><button type="button" class="linkbtn quiet" id="equityRemove">${I('x', 'ic-sm')}Remove<span class="sr"> equity</span></button></div>
+        ${textField('equity', 'As it should read in the letter')}</fieldset></div></div>`;
+  const terms = textField('expiry', 'Offer expires', {type:'date', hint:expiryHint()})
+    + selectField('sender', 'From', SENDERS.map(s => [s.id, `${s.name}, ${s.title} (you)`]), {noChoose:true, avatar:true, avatarName:() => sender().name, hint:esc(sender().email)});
+  return {cand, role, pay, terms}[id];
+}
+const asideFor = id => (badgeHTML(id) || '') + ({type:tip('Worker type', TIP.type), hire:tip('Hire setup', TIP.hire)}[id] || '');
+/* v2 "Start from" (15-v2 log): Ashby search (only when an ATS is connected), or a paste box / drop zone; the form fills in place */
+function startHTML(){
+  const ats = WF.atsOff ? '' : `<div class="field" style="margin-top:0"><div class="lbl"><label for="atsQ" id="atsL">Search candidates in Ashby</label></div>
+      <div class="combo">${I('search', 'search-ic')}<input class="input" id="atsQ" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="atsList" autocomplete="off" spellcheck="false" value="${esc(S.q)}">
+        <ul class="cand-list" id="atsList" role="listbox" aria-labelledby="atsL" hidden></ul></div></div>
+    <p class="or-row">Or</p>`;
+  const open = !S.bar || S.startOpen;
+  return `<section class="start-card is-settled" id="startCard" data-open="${open}" aria-labelledby="startH">
+    <div class="start-bar" id="startBar"${S.bar ? '' : ' hidden'}>${S.bar ? barHTML() : ''}</div>
+    <div class="start-full" id="startFull"><div class="start-clip"${open ? '' : ' inert'}><div class="start-in">
+    <h2 class="start-h" id="startH">Start from</h2>${ats}
+    <div class="field"${WF.atsOff ? ' style="margin-top:0"' : ''}><div class="lbl"><label for="paste">Paste a job link, notes or a file</label>${tip('Paste a job link, notes or a file', 'Bolto reads this only to fill in this offer.')}</div>
+      <textarea class="textarea" id="paste" rows="3" aria-describedby="pasteMsg">${esc(S.paste)}</textarea>
+      <p class="pastemsg" id="pasteMsg">${esc(S.pasteMsg)}</p>
+      <div class="drop" id="drop">${I('upload')}<span>Drop a file here, or</span><button type="button" class="linkbtn" data-act="pick-file">choose a file</button></div>
+      <div class="start-acts"><button type="button" class="btn btn-secondary" data-act="fill">Fill</button></div></div>
+    </div></div></div>
+    <div class="fill-row${S.bar ? ' sr' : ''}" id="fillRow" hidden><div class="statusline" id="fillStatus"></div><span id="fillActs"></span></div>
+  </section>`;
+}
+function offerHTML(){
+  const nm = fullName();
+  return `<div class="hx-body" id="body">
+    <div class="hx-chips" id="chips" role="navigation" aria-label="Offer checklist"></div>
+    <nav class="hx-rail" id="rail" aria-label="Offer checklist"></nav>
+    <div class="hx-form" id="formPane" data-keeper-host>
+      <h1 class="hx-title" id="pageH1" tabindex="-1">${nm ? 'Offer for ' + esc(nm) : 'New offer'}</h1>
+      <p class="hx-lede" id="lede">${ledeText()}</p>
+      ${startHTML()}
+      <div class="hx-sections"><div id="errsumSlot"></div><div id="checkSlot"></div>
+        ${SECTIONS.map(s => accHTML(s.id, s.title, secBody(s.id), {aside:asideFor(s.id)})).join('')}
+      </div>
+    </div>
+    <aside class="hx-letter" id="letterPane" aria-labelledby="letterTitle">
+      <div class="lt-head"><h2 id="letterTitle" tabindex="-1"></h2>${Segmented.html('style', [['Standard', 'Standard'], ['Concise', 'Concise']], S.style, {sm:true, label:'Letter style'})}</div>
+      <div class="lt-scroll" id="ltScroll" tabindex="0" role="region" aria-label="Letter text, scrolls"><div class="paper" id="letter"></div></div>
+    </aside>
+  </div>`;
+}
+
+function hireHTML(){
+  const w = who();
+  const invite = checkField('invite', `Invite ${esc(w || 'them')} to Bolto after they sign`, {tip:tip('Invite to Bolto', TIP.invite)});
+  if(!S.f.empType) return `<p class="plain">The rest depends on the worker type. <a href="#f-empType" data-go="empType">Choose it at the top</a>.</p>` + invite;
+  if(isCon()) return `<p class="plain">Overtime, payroll group and I-9 only apply to employees.</p>` + invite;
+  const o = ot();
+  let block = '';
+  if(o.mode === 'wait'){
+    block = `${errP('duties')}<p class="plain">${esc(waitLine())} <a href="#" id="ot-wait-link" data-go="${o.first}">${esc(msgFor(o.first))}</a>.</p>`;
+  } else if(o.mode === 'auto'){
+    block = floorBar(o) + `<p class="result neutral">${I('clock-3')}<span>Gets overtime pay (non-exempt).</span></p><p class="sr">${o.why}</p>`;
+  } else {
+    const opts = o.mode === 'hourly' ? [['software', 'Yes'], ['none', 'No'], ['unsure', "I'm not sure"]] : o.opts.map(v => [v, DUTIES[v]]);
+    const q = o.mode === 'hourly' ? `Does ${esc(who() || 'this person')} work as a software engineer, programmer or systems analyst?` : `What is ${esc(poss())}main work?`;
+    /* v2 (15-v2 log, Overtime; decided: evidence only): the posting's own duties sentence, never an answer, nothing selected */
+    const ev = S.posting ? `<div class="evidence" id="ot-ev"><p class="from">${I('file-text')}<span>From the job posting</span></p><blockquote>“${esc(S.posting.duties)}”</blockquote><p class="hint">A job title or posting doesn't decide this.</p></div>` : '';
+    block = floorBar(o) + ev + `<fieldset id="f-duties" class="field"${dbAttr([o.hint && 'h-duties', ev && 'ot-ev'])}><legend class="lbl">${q}</legend>${o.hint ? `<p class="hint" id="h-duties" style="margin:0 0 var(--s3)">${o.hint}</p>` : ''}${errP('duties')}
+      <div class="rlist">${opts.map(([v, l], i) => `<label class="ropt"><input type="radio" id="f-duties-${i}" name="duties" value="${v}"${S.f.duties === v ? ' checked' : ''}><span class="dot" aria-hidden="true"></span><span class="t">${l}</span></label>`).join('')}</div></fieldset>
+      <p class="result" id="ot-result" hidden></p>`;
+  }
+  const pgChanged = S.f.payrollGroup && derivedGroup() && S.f.payrollGroup !== derivedGroup();
+  return selectField('payrollGroup', 'Payroll group', [['US Salaried', 'US Salaried'], ['US Hourly', 'US Hourly']], {noChoose: !!S.f.payrollGroup, tip:tip('Payroll group', TIP.pg),
+      hint: pgChanged ? `Changed by you. Bolto would use ${derivedGroup()} for ${S.f.payType === 'Hourly' ? 'hourly' : 'salaried'} pay.` : ''})
+    + `<div class="field" data-f="duties"><div class="subhead">Overtime pay (FLSA) ${tip('Overtime pay (FLSA)', TIP.flsa)}</div>${block}</div>`
+    + `<div class="field"><div class="factrow"><span class="k">I-9 ${tip('I-9', TIP.i9)}</span><span class="v">Bolto collects ${esc(w ? w + "'s" : 'their')} I-9 after they sign.</span></div></div>`
+    + invite;
+}
+/* Keep the floor labels inside the bar's width on any screen: a centred or end-aligned label that would cross an edge is nudged back. */
+function clampFloorLabs(t){
+  const tr = t.getBoundingClientRect(); if(!tr.width) return;
+  t.querySelectorAll('.floor-lab').forEach(l => {
+    l.style.removeProperty('--nudge'); const r = l.getBoundingClientRect();
+    const d = r.width > tr.width || r.left < tr.left ? tr.left - r.left : r.right > tr.right ? tr.right - r.right : 0;
+    if(Math.abs(d) > 0.5) l.style.setProperty('--nudge', d.toFixed(1) + 'px');
+  });
+}
+const floorRO = new ResizeObserver(es => es.forEach(e => clampFloorLabs(e.target)));
+/* Overtime floor bar (17 §5): the pay against the floor that decides the outcome. Numbers come from the lo-fi's table. */
+function floorBar(o){
+  const st = workState(), fl = FLOORS[st] || FED, amt = num(S.f.amount), hourly = S.f.payType === 'Hourly';
+  const code = st.startsWith('NY') ? 'NY' : st;
+  const abbr = key => !FLOORS[st] || (fl.fedKeys || []).includes(key) ? 'Federal' : code;
+  let key, F;
+  if(hourly){ key = 'hourly'; F = fl.hourly; }
+  else if(o.mode === 'auto'){ key = 'salary'; F = fl.salary; }
+  else { const c = [['salary', fl.salary], ['comp', fl.comp], ['mgr', fl.mgr]]; const above = c.filter(x => x[1] > amt).sort((a, b) => a[1] - b[1]);
+    [key, F] = above.length ? above[0] : c.sort((a, b) => b[1] - a[1])[0]; }
+  const max = Math.max(amt, F) * 1.25, fx = amt / max, tx = F / max, u = hourly ? ' / hour' : '';
+  const al = p => p > 0.82 ? 'end' : p < 0.18 ? '' : 'mid';
+  const mf = hourly ? money : money0, ab = abbr(key), floorT = `Exempt minimum (${ab === 'Federal' ? 'federal' : ab}) ${mf(F)}${u}`;
+  const label = `${mf(amt)}${u}. ${floorT}.`;
+  return `<div class="floor" role="img" aria-label="${esc(label)}"><div class="floor-track"><span class="floor-fill" style="--f:${fx.toFixed(3)}"></span>
+    <span class="floor-tick" style="left:${(tx * 100).toFixed(1)}%"></span>
+    <span class="floor-lab top ${al(tx)}" style="left:${(tx * 100).toFixed(1)}%">${floorT}</span>
+    <span class="floor-lab bot ${al(fx)}" style="left:${(fx * 100).toFixed(1)}%">${mf(amt)}${u}</span></div></div>`;
+}
+function resultText(){
+  const d = S.f.duties;
+  if(!d) return {t:'', soft:false};
+  if(d === 'unsure') return {t:(WF.saveFail ? '' : 'Your draft is saved. ') + 'Check with whoever runs payroll.', soft:true};
+  const v = otFinal();
+  return v === null ? {t:'', soft:false} : {t:otWords(v) + '.', soft:false};
+}
+
+/* ===================== the letter (lo-fi text, Standard and Concise) ===================== */
+const GAPLABEL = {first:'First name', last:'Last name', title:'Job title', empType:'Worker type', startDate:'Start date', endDate:'Contract end date',
+  reportsTo:'Reports to', location:'Where they work', workplace:'Workplace', payType:'Salary or hourly', amount:'Pay amount', bonus:'Signing bonus amount',
+  bonusMonths:'Bonus repayment months', equity:'Equity', expiry:'Offer expiry date'};
+function filled(k){
+  if(k === 'amount') return validAmount();
+  if(k === 'bonus') return validBonus();
+  if(k === 'bonusMonths') return validMonths();
+  return String(S.f[k] ?? '').trim() !== '';
+}
+function letterHTML(final){ return letterBody(final).replace(/Acme Co\.\./g, 'Acme Co.'); }
+function letterBody(final){
+  const f = S.f, st = S.style, emp = isEmp(), con = isCon(), s = sender(), used = new Set();
+  const g = (k, fmt) => {
+    const nm = k === 'reportsTo' && con ? 'Point of contact' : GAPLABEL[k], ph = nm.toLowerCase();
+    if(filled(k)) return `<span class="v" data-v="${k}">${esc(fmt ? fmt(f[k]) : f[k])}</span>`;
+    if(final) return '';
+    if(used.has(k)) return `<span class="gap passive" data-go="${k}">${ph}</span>`;
+    used.add(k);
+    return `<a href="#f-${k}" class="gap" data-go="${k}" aria-label="${nm}, missing">${ph}</a>`;
+  };
+  const date = TODAY.toLocaleDateString('en-US', {month:'long', day:'numeric', year:'numeric'});
+  const first = () => g('first'), last = () => g('last');
+  const title = () => g('title'), start = () => g('startDate', fdate), end = () => g('endDate', fdate);
+  const rep = () => g('reportsTo'), exp = () => g('expiry', fdate);
+  const amount = () => g('amount', v => money(num(v)));
+  const unit = () => f.payType ? `<span class="v" data-v="payType">${f.payType === 'Hourly' ? 'an hour' : 'a year'}</span>` : g('payType');
+  const pay = () => `${amount()} ${unit()}`;
+  const kind = () => emp ? `<span class="v" data-v="empType">${f.empType === 'ft' ? 'full-time' : 'part-time'}</span>` : (con ? '<span class="v" data-v="empType">contractor</span>' : g('empType'));
+  const place = () => !f.location ? g('location')
+    : f.location === 'Remote' ? '<span class="v" data-v="location">Remote</span>'
+    : `<span class="v" data-v="location">${f.location}</span>, ${g('workplace', () => office().name)}`;
+  const where = () => !f.location ? g('location')
+    : f.location === 'Remote' ? '<span class="v" data-v="location">remotely</span>'
+    : con ? `<span class="v" data-v="location">${f.location === 'Hybrid' ? 'partly from' : 'at'}</span> our ${g('workplace', () => office().name)}`
+    : `<span class="v" data-v="location">${f.location === 'Hybrid' ? 'on a hybrid schedule from' : 'on-site at'}</span> our ${g('workplace', () => office().name)}`;
+  const months = () => g('bonusMonths', v => `${+v} month${+v === 1 ? '' : 's'}`);
+  /* the key-terms row uses the body's own clause, never a broader one (C: "leave" was broader than the contractor clause) */
+  const bonusShort = () => `${g('bonus', v => money(num(v)))}${f.bonusRepay ? (con ? `, repaid if you end this engagement within ${months()} of its start` : `, repaid if you resign, or are let go for cause, within ${months()} of your start date`) : ''}`;
+  const bonusLong = () => f.bonusOpen ? ` You'll receive a one-time signing bonus of ${g('bonus', v => money(num(v)))}.${f.bonusRepay ? (con ? ` If you end this engagement within ${months()} of its start, you agree to repay it in full.` : ` If you resign, or are let go for cause, within ${months()} of your start date, you agree to repay it in full.`) : ''}` : '';
+  const equityLong = () => f.equityOpen ? ` Subject to approval by ${COMPANY}'s board, you'll be granted ${g('equity')}, under the terms of ${COMPANY}'s equity plan.` : '';
+  const dept = () => f.department.trim() ? ` You'll be part of the <span class="v" data-v="department">${esc(f.department.trim())}</span> team.` : '';
+  const lines = f.work.split('\n').map(x => x.replace(/^[\s•*-]+/, '').trim()).filter(Boolean);
+  const duties = (lead, none) => lines.length
+    ? `<p>${lead}</p><ul class="v" data-v="work">${lines.map(l => `<li>${esc(l)}</li>`).join('')}</ul>${con ? '' : "<p>This isn't a complete list, and it may change as the business needs.</p>"}`
+    : `<p>${none}</p>`;
+  const kt = rows => `<table class="kt"><tbody>${rows.filter(Boolean).map(([k, v]) => `<tr><th scope="row">${k}</th><td>${v}</td></tr>`).join('')}</tbody></table>`;
+  const head = `<div class="lh"><strong>${COMPANY}</strong><span class="num">${date}</span></div><p>${first()} ${last()}</p>`;
+  const sig = `<div class="sig"><div><p class="line">Signature and date</p><p><span class="v" data-v="sender">${esc(s.name)}<br>${esc(s.title)}, ${COMPANY}</span></p></div>
+    <div><p class="line">Signature and date</p><p>Accepted by ${first()} ${last()}</p></div></div>`;
+  const sec = t => `<h3>${t}</h3>`;
+  const ask = `<p>If you have any questions, email <span class="v" data-v="sender">${esc(s.name)} at ${esc(s.email)}</span>.</p>`;
+  const whole = `<p>This letter and the agreement that comes with it are the full agreement about this offer, and they replace anything said or written before.</p>`;
+  const other = `<p>While you work for ${COMPANY}, you won't take on outside work that seriously gets in the way of your job or creates a real conflict of interest. This doesn't limit anything the law protects. You confirm that no agreement with a past employer stops you from doing this job, and you won't bring any past employer's confidential information to ${COMPANY}.</p>`;
+
+  if(con){
+    const services = () => duties("You'll provide these services:", `You'll provide the services we agree on with your point of contact, in the role above.`);
+    const onsite = f.location === 'On-site', ofc = () => g('workplace', () => office().name);
+    const conLoc = () => f.location === 'Hybrid' ? ` <span class="v" data-v="location">You can work from</span> our ${ofc()} when it suits the work.`
+      : onsite ? ` <span class="v" data-v="location">You'll have a workspace at</span> our ${ofc()}.` : '';
+    const conWhere = () => f.location === 'Hybrid' ? `<span class="v" data-v="location">with use of</span> our ${ofc()} when it suits the work`
+      : onsite ? `<span class="v" data-v="location">with a workspace at</span> our ${ofc()}` : `working ${where()}`;
+    const decide = onsite ? 'how and when' : 'how, when and where';
+    const expenses = `<p>${COMPANY} reimburses expenses only when agreed in writing in advance.</p>`;
+    const payC = () => `<p>You'll be paid ${pay()}, against invoices you send us. As an independent contractor, you're responsible for your own taxes, and you aren't eligible for ${COMPANY}'s employee benefits.${bonusLong()}${equityLong()}</p>`;
+    const status = `<p>You decide ${decide} the work gets done, and you use your own tools. Nothing in this letter makes you an employee of ${COMPANY}.${st === 'Standard' ? conLoc() : ''}</p>`;
+    const ip = `<p>You'll keep ${COMPANY}'s confidential information private, and the work you create for us under this engagement belongs to ${COMPANY}. You'll sign our Contractor Confidentiality and IP Assignment Agreement, which comes with this letter.</p>`;
+    if(st === 'Concise') return head + `<p>Dear ${first()},</p>
+      <p>We'd like to engage you as an independent contractor in the role of ${title()}, from ${start()}, to ${end()}, ${conWhere()}, at ${pay()}, paid against your invoices. Your point of contact is ${rep()}.${dept()}${bonusLong()}${equityLong()}</p>
+      ${lines.length ? duties("Services:", '') : ''}
+      <p>You decide ${decide} the work gets done, handle your own taxes, and aren't eligible for employee benefits. Your work for us belongs to ${COMPANY}, under the agreement that comes with this letter. Either of us can end the engagement early with written notice.</p>
+      ${ask}<p>Please sign by ${exp()}.</p>` + sig;
+    return head + `<p>Dear ${first()},</p><p>We'd like to engage you as an independent contractor for ${COMPANY}. Here are the key terms.</p>
+      ${kt([['Role', title()], ['Engagement', 'Independent contractor'], ['Starts', start()], ['Ends', end()], ['Point of contact', rep()], f.location === 'Hybrid' ? ['Workspace', `${ofc()} available (hybrid)`] : onsite ? ['Workspace', ofc()] : ['Work location', place()],
+        f.department.trim() ? ['Team', `<span class="v" data-v="department">${esc(f.department.trim())}</span>`] : null,
+        ['Rate', pay()], f.bonusOpen ? ['Signing bonus', bonusShort()] : null, f.equityOpen ? ['Equity', g('equity')] : null, ['Offer expires', exp()]])}
+      ${sec('1. Services')}${services()}
+      ${sec('2. Payment')}${payC()}
+      ${sec('3. Your status')}${status}
+      ${sec('4. Confidentiality and work product')}${ip}
+      ${sec('5. Expenses')}${expenses}
+      ${sec('6. Ending the engagement')}<p>The engagement ends on ${end()}. Either of us can end it earlier with written notice.</p>
+      ${sec('7. The whole agreement')}${whole}
+      ${sec('8. Accepting this offer')}<p>This offer expires on ${exp()}. To accept, sign this letter electronically by then.</p>${ask}<p>Sincerely,</p>` + sig;
+  }
+
+  /* v2 (C5, from the lo-fi v2): whenever the worker type is empty, before a fill or after one, the letter shows only what both letters share;
+     no employee or contractor clause appears for someone who may be the other (a contractor must never read "payroll" or "at will") */
+  if(!f.empType && !final) return head + `<p>Dear ${first()},</p><p>We'd like to offer you the role of ${title()} at ${COMPANY}. Here are the key terms.</p>
+    ${kt([['Role', title()], ['Employment type', g('empType')], ['Starts', start()], ['Work location', place()], ['Pay', pay()],
+      f.bonusOpen ? ['Signing bonus', g('bonus', v => money(num(v)))] : null, f.equityOpen ? ['Equity', g('equity')] : null, ['Offer expires', exp()]])}
+    <p>The rest of the letter depends on the worker type.</p>` + sig;
+  const role = () => duties('Your duties may include:', `Your duties will be those that fit the role and the needs of the business, and they may change over time.`);
+  const payE = () => `<p>Your pay is ${pay()}, paid on ${COMPANY}'s regular payroll schedule, less required taxes and withholdings.${bonusLong()}${equityLong()}</p>`;
+  const benefits = `<p>You'll be eligible for the benefits and paid time off ${COMPANY} offers employees in your role, under its plans and policies, which may change from time to time.</p>`;
+  const conditions = `<p>This offer depends on you showing that you're allowed to work in the United States (Form I-9) within three business days of your start date, and on a satisfactory background check. You'll also sign ${COMPANY}'s Confidential Information and Invention Assignment Agreement, which comes with this letter.</p>`;
+  const atWill = `<p>Your employment is at will: you or ${COMPANY} can end it at any time, with or without cause or notice.</p>`;
+  if(st === 'Concise') return head + `<p>Dear ${first()},</p>
+    <p>We're offering you the role of ${title()} at ${COMPANY}, as ${emp ? `a ${kind()} employee` : g('empType')}, starting ${start()}, and reporting to ${rep()}. You'll work ${where()}.${dept()} Your pay is ${pay()}.${bonusLong()}${equityLong()}</p>
+    ${role()}
+    <p>This offer depends on proof that you can work in the United States and a satisfactory background check. You'll also sign our Confidential Information and Invention Assignment Agreement. Benefits and time off follow ${COMPANY}'s policies. Your employment is at will: either of us can end it at any time, with or without cause or notice.</p>
+    ${ask}<p>Please sign by ${exp()}.</p>` + sig;
+  return head + `<p>Dear ${first()},</p><p>We're delighted to offer you a position at ${COMPANY}. Here are the key terms.</p>
+    ${kt([['Position', title()], ['Employment type', emp ? `<span class="v" data-v="empType">${f.empType === 'ft' ? 'Full-time' : 'Part-time'} employee</span>` : g('empType')],
+      ['Start date', start()], ['Reports to', rep()], ['Work location', place()],
+      f.department.trim() ? ['Department', `<span class="v" data-v="department">${esc(f.department.trim())}</span>`] : null,
+      ['Pay', pay()], f.bonusOpen ? ['Signing bonus', bonusShort()] : null, f.equityOpen ? ['Equity', g('equity')] : null, ['Offer expires', exp()]])}
+    ${sec('1. Your role')}<p>You'll join ${COMPANY} in the role of ${title()}, reporting to ${rep()}.</p>${role()}
+    ${sec('2. Pay')}${payE()}
+    ${sec('3. Benefits and time off')}${benefits}
+    ${sec('4. Conditions of this offer')}${conditions}
+    ${sec('5. At-will employment')}${atWill}
+    ${sec('6. Other work and past employers')}${other}
+    ${sec('7. The whole agreement')}${whole}
+    ${sec('8. Accepting this offer')}<p>This offer expires on ${exp()}. To accept, sign this letter electronically by then. We're excited to have you join us.</p>${ask}<p>Sincerely,</p>` + sig;
+}
+
+/* ===================== surgical updates (focus is never lost) ===================== */
+let ACC = null, CHECK = null;
+function crumbsHTML(){
+  const nm = fullName(), cur = S.screen === 'list' ? 'Offer letters' : (nm ? 'Offer for ' + nm : 'New offer');
+  return S.screen === 'list' ? `<span aria-current="page">Offer letters</span>`
+    : `<a href="#" data-act="to-list" class="first">Offer letters</a><span class="sep" aria-hidden="true">/</span><span aria-current="page" id="crumbNow">${esc(cur)}</span>`;
+}
+function updateHeader(){
+  const nm = fullName(), h = $('#pageH1');
+  if(h && S.screen === 'offer') h.textContent = nm ? 'Offer for ' + nm : 'New offer';
+  const cn = $('#crumbNow'); if(cn) cn.textContent = nm ? 'Offer for ' + nm : 'New offer';
+  const lt = $('#letterTitle'); if(lt) lt.textContent = `What ${who() || 'the candidate'} will see`;
+  setTitle();
+}
+function setTitle(){
+  const base = S.screen === 'offer' ? (fullName() ? 'Offer for ' + fullName() : 'New offer')
+    : S.screen === 'review' ? `Check and send ${poss().trim()} offer` : S.screen === 'sent' ? 'Offer sent' : 'Offer letters';
+  const err = (S.screen === 'offer' && S.errItems) || (S.screen === 'review' && S.sendErr);
+  document.title = (err ? 'Error: ' : '') + base + ' · Bolto';
+}
+/* Add button: fades out/in (opacity); the sibling button slides into place (FLIP by transform). Hidden after the fade. */
+function fadeAdd(btn, open){
+  if(!btn) return;
+  btn.setAttribute('aria-expanded', String(open));
+  const on = !open;   /* on = the button is shown (hidden while its panel is open) */
+  if(on ? (!btn.hidden && btn.dataset.fading !== 'out') : (btn.hidden || btn.dataset.fading === 'out')) return;
+  const tok = (btn.__fd = (btn.__fd || 0) + 1), ms = Motion.ms('--d-fade-out');
+  const sib = [...btn.parentElement.children].find(x => x !== btn && !x.hidden);
+  const slide = from => { if(!sib || !from || !ms) return; const to = sib.getBoundingClientRect(), dx = from.left - to.left, dy = from.top - to.top; if(!dx && !dy) return;
+    sib.style.transition = 'none'; sib.style.transform = `translate(${dx}px, ${dy}px)`; void sib.offsetWidth;
+    sib.style.transition = 'transform var(--d-base) var(--ease-enter)'; sib.style.transform = '';
+    Motion.after(sib, Motion.ms('--d-base')).then(() => { if(!sib.style.transform) sib.style.transition = ''; }); };
+  if(on){
+    const from = sib && sib.getBoundingClientRect();
+    delete btn.dataset.fading; btn.hidden = false; slide(from);
+    if(!ms){ btn.style.opacity = ''; btn.style.transition = ''; return; }
+    btn.style.transition = 'none'; btn.style.opacity = '0'; void btn.offsetWidth;
+    btn.style.transition = 'opacity var(--d-base) var(--ease-enter)'; btn.style.opacity = '';
+    Motion.after(btn, Motion.ms('--d-base')).then(() => { if(btn.__fd === tok) btn.style.transition = ''; });
+  } else {
+    if(!ms){ btn.hidden = true; return; }
+    btn.dataset.fading = 'out'; btn.style.transition = 'opacity var(--d-fade-out) var(--ease-exit)'; btn.style.opacity = '0';
+    Motion.after(btn, ms).then(() => { if(btn.__fd !== tok) return; delete btn.dataset.fading;
+      const from = sib && !sib.hidden && sib.getBoundingClientRect(); btn.hidden = true; btn.style.opacity = ''; btn.style.transition = ''; slide(from); });
+  }
+}
+function updateConditional(){
+  const f = S.f, show = (sel, on) => $$(`[data-when="${sel}"]`).forEach(el => el.hidden = !on);
+  show('con', isCon());
+  show('remote', f.location === 'Remote' && !isCon());
+  show('office', f.location === 'Hybrid' || f.location === 'On-site');
+  /* the months row stays as it is while the bonus panel closes, so the panel shrinks in one motion, then it resets */
+  if(f.bonusOpen) show('repay', f.bonusRepay);
+  Motion.reveal($('#bonusPanel'), f.bonusOpen).then(() => { if(!S.f.bonusOpen) show('repay', S.f.bonusRepay); });
+  fadeAdd($('#bonusAdd'), f.bonusOpen);
+  Motion.reveal($('#equityPanel'), f.equityOpen); fadeAdd($('#equityAdd'), f.equityOpen);
+  Motion.reveal($('#addWrap'), !(f.bonusOpen && f.equityOpen));
+  const rl = $('#l-reportsTo'); if(rl) rl.textContent = isCon() ? 'Point of contact' : 'Reports to';
+  const rt = $('[data-f="bonusRepay"] .tip-btn'); if(rt) rt.dataset.text = isCon() ? TIP.repayC : TIP.repay;
+  const u = $('#u-amount'); if(u) u.textContent = f.payType === 'Hourly' ? '/ hour' : (f.payType === 'Salary' ? '/ year' : '');
+  const wh = $('#h-work'); if(wh) wh.textContent = workHint();
+  [['startDate', dayHint(f.startDate)], ['endDate', dayHint(f.endDate)], ['expiry', expiryHint()]].forEach(([k, t]) => { const h = $('#h-' + k); if(h){ h.textContent = t; h.hidden = !t; } });
+  [['reportsTo', f.reportsTo], ['sender', sender().name]].forEach(([k, n]) => { const a = $('#av-' + k); if(a){ a.textContent = n ? initials(n) : ''; a.classList.toggle('empty', !n); } });
+}
+function updateHire(k){
+  const hb = $('#hireBody'); if(!hb) return;
+  if(!['duties', 'invite'].includes(k)){
+    const html = hireHTML();
+    if(html !== S.hireHTML){
+      const a = document.activeElement, inside = a && hb.contains(a) ? a.id : null;
+      hb.innerHTML = html; S.hireHTML = html;
+      hb.querySelectorAll('.floor-track').forEach(t => floorRO.observe(t));
+      if(inside){ const el = document.getElementById(inside); if(el) el.focus({preventScroll:true}); }
+    }
+  }
+  const r = $('#ot-result');
+  if(r){ const t = resultText(), nonEx = !t.soft && otFinal() === false; r.hidden = !t.t; r.classList.toggle('soft', t.soft); r.classList.toggle('neutral', nonEx);
+    const html = t.t ? `${I(t.soft ? 'info' : nonEx ? 'clock-3' : 'circle-check')}<span>${esc(t.t)}</span>` : ''; if(r.dataset.html !== html){ r.innerHTML = html; r.dataset.html = html; } }
+  const o = ot(), line = o.mode === 'auto' ? `Gets overtime pay (non-exempt). ${o.why}` : (o.mode === 'hourly' || o.mode === 'salary') ? resultText().t : '';
+  if(S.otSaid !== null && line && line !== S.otSaid) say(line);
+  S.otSaid = line;
+}
+function updateLetter(){
+  const L = $('#letter'); if(!L) return;
+  const a = document.activeElement, k = a && a.name, html = letterHTML(false);
+  if(L.dataset.html !== html){ L.innerHTML = html; L.dataset.html = html;
+    S.fresh.forEach((v, key) => $$(`.paper [data-v="${key}"]`, L).forEach(x => x.classList.add('is-fresh'))); }
+  if(k) highlight(k);
+}
+/* M7: the changed words hold a tint while typing, then fade over --d-glow */
+function markFresh(k){
+  clearTimeout(S.fresh.get(k));
+  S.fresh.set(k, setTimeout(() => { S.fresh.delete(k); $$(`.paper [data-v="${k}"]`).forEach(x => x.classList.remove('is-fresh')); }, 700));
+}
+function highlight(k){
+  $$('#letter .is-linked').forEach(x => x.classList.remove('is-linked'));
+  if(!k) return;
+  const hits = $$(`#letter [data-v="${k}"], #letter .gap[data-go="${k}"]`);
+  hits.forEach(x => x.classList.add('is-linked'));
+  const pane = $('#ltScroll');
+  if(hits[0] && pane && pane.scrollHeight > pane.clientHeight + 1){
+    const r = hits[0].getBoundingClientRect(), pr = pane.getBoundingClientRect();
+    if(r.top < pr.top + 40 || r.bottom > pr.bottom - 16) pane.scrollTo({top: pane.scrollTop + r.top - pr.top - pr.height / 3, behavior: Motion.reduced() ? 'auto' : 'smooth'});
+  }
+}
+function footerOffer(){
+  return `<button type="button" class="count" id="countBtn"><span id="countIcon"></span><span class="count-text" id="countText"></span></button><span class="spacer"></span>
+    <button type="button" class="btn btn-primary" data-act="review">Review offer</button>`;
+}
+function updateBar(announce, first){
+  const miss = missing(), n = miss.length, t = n ? `${n} left` : 'Ready to review';
+  const ct = $('#countText'), ci = $('#countIcon'); if(!ct || S.holdStatus) return;
+  if(first){ ct.innerHTML = esc(t); ct.dataset.html = esc(t); } else Motion.swapText(ct, esc(t));
+  const total = SECTIONS.reduce((a, s) => a + KEYS[s.id].filter(applies).length, 0), frac = total ? (total - n) / total : 0;
+  if(!ci.firstChild) ci.innerHTML = Ring.html();
+  Ring.set($('.ring', ci), {state: n ? (frac ? 'progress' : 'todo') : 'done', frac}, {animate: !first});
+  $('#countBtn').setAttribute('aria-label', n ? `${t}. Go to the first one` : t);
+  if(announce){ if(S.lastN !== null && n !== S.lastN) say(t + '.'); S.lastN = n; }
+  else if(S.lastN === null) S.lastN = n;
+}
+function updateStatus(first, commit = true){
+  const miss = missing();
+  /* M20: during a fill each section's ring is set by finishFill as its values land, not all at once up front */
+  if(!S.holdStatus) SECTIONS.forEach(s => CHECK && CHECK.set(s.id, {...secStatus(s.id, miss), animate: !first}));
+  /* A section is judged done (collapse + "done." said) on commit (change/blur), never per keystroke: the overtime
+     question only updates on commit, so "1" of "150000" must not finish Hire setup. Typing only repaints the summaries. */
+  if(!ACC || S.filling) return;
+  if(commit) accUpdate(); else ACC.s.forEach(x => ACC.paint(x));
+}
+/* ACC.update plus one line when a done section reopens because of a new gap ("Hire setup needs 1 more answer.") */
+function accUpdate(){
+  const was = SECTIONS.filter(s => { const x = ACC.s.get(s.id); return x && x.prevDone; });
+  ACC.update();
+  if(!ACC.announce) return;
+  const miss = missing();
+  was.forEach(s => { const x = ACC.s.get(s.id); if(x && !x.prevDone){ const n = miss.filter(m => secOf(m.k) === s.id).length;
+    if(n) say(`${s.title} needs ${n} more answer${n === 1 ? '' : 's'}.`); } });
+}
+
+/* ===================== saving (autosave only; the header never says more than is true, C7) ===================== */
+/* r3: old and new layers crossfade in one held-width cell (Hifi.SaveMark); unchanged state/text = no-op */
+let SAVEMARK = null;
+const liveRetry = () => SAVEMARK && SAVEMARK.layer() ? SAVEMARK.layer().querySelector('.retry') : null;
+function setSave(state, text){
+  S.save = state; const el = $('#saveState'); if(!el) return;
+  if(!SAVEMARK) SAVEMARK = SaveMark(el, {sizes: [SaveMark.saving('Saving'), `${I('circle-check')}<span>Saved</span>`]});
+  const r = liveRetry();
+  if(state === 'saving' && r){ busy(r, true); return; }
+  if(state === 'failed' && r){ busy(r, false); return; }
+  el.dataset.state = state;
+  if(state === '') { SAVEMARK.set('', ''); return; }
+  if(state === 'saving'){ SAVEMARK.set('saving', SaveMark.saving('Saving')); return; }
+  if(state === 'saved'){ SAVEMARK.set('saved|' + (text || 'Saved'), `${I('circle-check')}<span>${esc(text || 'Saved')}</span>`, {draw:true}); return; }
+  if(state === 'failed'){
+    SAVEMARK.set('failed', `${I('circle-alert')}<span>Couldn't save</span><span aria-hidden="true">·</span><button type="button" class="linkbtn retry" data-act="retry"><span class="label">Try again</span><span class="spin">${I('loader-circle', 'spinner ic-sm')}</span></button>`);
+    say("Couldn't save.");
+  }
+}
+function saveDraft(){
+  S.draft = true; clearTimeout(S.saveT);
+  setSave('saving');
+  S.saveT = setTimeout(() => {
+    if(WF.saveFail){ setSave('failed'); return; }
+    const wasRetry = !!liveRetry(), hadFocus = wasRetry && document.activeElement === liveRetry();
+    const t = new Date().toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit'});
+    S.savedAt = `${md(TODAY)}, ${t}`; setSave('saved');
+    if(hadFocus){ const h = $('#pageH1'); h && h.focus({preventScroll:true}); }
+  }, 600);
+}
+function payWarning(){
+  const w = $('#warn-amount'); if(!w) return;
+  const a = num(S.f.amount); let t = '';
+  if(a && S.f.payType === 'Hourly' && a >= 1000) t = `${money(a)} an hour? That looks like a yearly salary.`;
+  if(a && S.f.payType === 'Salary' && a < 1000) t = `${money(a)} a year? That looks like an hourly rate.`;
+  const p = $('p', w); if(p.textContent !== t){ p.textContent = t; w.hidden = !t; if(t) say(t); }
+}
+
+/* ===================== errors: the list from the last press of "Review offer"; an item drops as soon as it's fixed ===================== */
+function renderErrors(){
+  const slot = $('#errsumSlot'); if(!slot) return;
+  let shown = [];
+  if(S.errItems){ const now = new Set(missing().map(m => m.k)); shown = S.errItems.filter(i => now.has(i.k)); if(!shown.length) S.errItems = null; }
+  const want = new Map(shown.map(i => [i.k, i.msg]));
+  /* on-blur checks (email format, amount above 0): shown under the field only, dropped the moment the value is valid */
+  const miss = new Map(missing().map(m => [m.k, m.msg]));
+  S.blurErr.forEach(k => { if(miss.has(k)){ if(!want.has(k)) want.set(k, miss.get(k)); } else S.blurErr.delete(k); });
+  $$('.field[data-f]').forEach(fe => {
+    const k = fe.dataset.f, e = document.getElementById('e-' + k), on = want.has(k) && !!e;
+    fe.classList.toggle('has-err', on);
+    if(e){ const t = on ? want.get(k) : '', box = e.closest('.err');
+      if(e.dataset.t !== t){ e.dataset.t = t;
+        if(on){ e.innerHTML = `${I('circle-alert')}<span><span class="sr">Error: </span>${esc(t)}</span>`; Motion.reveal(box, true); }
+        else Motion.reveal(box, false).then(() => { if(!e.dataset.t) e.innerHTML = ''; }); } }
+    const c = document.getElementById('f-' + k);
+    if(c){ const base = c.dataset.db || '', db = [base, on ? 'e-' + k : ''].filter(Boolean).join(' ');
+      if(c.matches('input, select, textarea')){ if((c.getAttribute('aria-describedby') || '') !== db){ db ? c.setAttribute('aria-describedby', db) : c.removeAttribute('aria-describedby'); } }
+      else { $$('input', c).forEach(inp => { on ? inp.setAttribute('aria-describedby', 'e-' + k) : inp.removeAttribute('aria-describedby'); }); }
+    }
+  });
+  if(!shown.length){ if(slot.innerHTML){ slot.innerHTML = ''; slot.dataset.html = ''; } setTitle(); return; }
+  const html = `<div class="callout callout-error errsum" id="errsum" tabindex="-1" aria-labelledby="errsum-h">${I('circle-alert')}<div><h2 class="callout-t" id="errsum-h">There is a problem</h2>
+    <ul>${shown.map(i => `<li><a href="#f-${i.k}" data-go="${i.k}">${esc(i.msg)}</a></li>`).join('')}</ul></div></div>`;
+  if(slot.dataset.html !== html){ const had = document.activeElement && slot.contains(document.activeElement); slot.innerHTML = html; slot.dataset.html = html; if(had) $('#errsum').focus(); }
+  setTitle();
+}
+
+function refresh(k, commit){
+  if(commit && isEmp() && !S.pgOverride && derivedGroup() && S.f.payrollGroup !== derivedGroup()) S.f.payrollGroup = derivedGroup();
+  if(commit) updateConditional();
+  updateHeader();
+  if(commit) updateHire(k);
+  updateLetter();
+  updateBar(commit);
+  updateSrcLines();
+  updateChecks(commit);
+  renderErrors();
+  updateFillText();
+  updateStatus(false, commit);
+}
+
+/* ===================== v2: fill in place (15-v2 log, Filling in place + Data rules; motion M20, M21, M22) ===================== */
+/* rebuild the five field sections in place (the accordions and the start card stay), focus held by id */
+function renderFields(){
+  if(!$('#sec-type')) return;
+  const a = document.activeElement, id = a && a.id && $('.hx-sections').contains(a) ? a.id : null;
+  SECTIONS.forEach(s => {
+    const inner = $(`#secp-${s.id} .acc-inner`); if(s.id !== 'hire') inner.innerHTML = secBody(s.id);
+    const as = $(`#sec-${s.id} .acc-aside`); if(as) as.innerHTML = asideFor(s.id);
+  });
+  S.hireHTML = ''; S.otSaid = null; S.lastN = null; S.ckSaid = null;
+  Segmented.init($('.hx-sections'));
+  refresh(null, true);
+  if(id){ const el = document.getElementById(id); if(el) Hifi.focusQuiet(el); }
+}
+/* the collapsed source bar: where the values came from, the live "N need you" from missing(), Undo fill and Change */
+const SRC_BAR = {'Ashby':['user-round', () => `${ASHBY_ALEX.name}'s offer in Ashby`], 'jordan-notes.txt':['file-text', () => 'jordan-notes.txt'],
+  "Jordan's email":['mail', () => "Jordan's email"], 'the job posting and your notes':['file-text', () => 'Your notes and the job posting'],
+  'the job posting':['link', () => 'The job posting'], 'your notes':['sticky-note', () => 'Your notes']};
+function barCountHTML(){ return missing().length ? esc(needYou()) : `${I('check', 'ic-sm')}Nothing missing`; }
+function barHTML(){
+  const b = SRC_BAR[S.barFrom] || ['file-text', () => S.barFrom || ''];
+  return `<p class="sb-src">${I(b[0])}<span>${esc(b[1]())}</span></p>
+    <p class="sb-meta"><span class="sb-count" id="sbCount">${barCountHTML()}</span><span class="sb-acts"><button type="button" class="linkbtn" data-act="undo-fill">Undo fill</button><button type="button" class="linkbtn" data-act="start-toggle" id="startToggle" aria-label="Change source" aria-expanded="${!!S.startOpen}" aria-controls="startFull">Change</button></span></p>`;
+}
+function paintBarCount(){ const c = $('#sbCount'); if(!c || !S.bar) return; const h = barCountHTML(); if(c.dataset.h !== h){ c.dataset.h = h; c.innerHTML = h; } }
+/* open or close the full card (M2: rows 0fr <-> 1fr). Rule 6: the field you're in never moves (Keeper tracks it);
+   focus inside the closing card moves to Change first, so it is never lost */
+async function setStartOpen(open, o = {}){
+  const card = $('#startCard'); if(!card) return;
+  const clip = $('.start-clip', card), full = $('#startFull');
+  S.startOpen = open;
+  if(!open && clip.contains(document.activeElement)){ const ch = $('#startToggle'); if(ch) Hifi.focusQuiet(ch); }
+  const ae = document.activeElement, anchor = ae && ae !== document.body && !clip.contains(ae) ? ae : null;
+  const keep = anchor ? Hifi.Keeper.track(anchor) : null;
+  card.classList.remove('is-settled');
+  clip.inert = !open; card.dataset.open = String(open);
+  const t = $('#startToggle'); if(t) t.setAttribute('aria-expanded', String(open));
+  await Motion.after(full, o.animate === false ? 0 : Motion.ms('--d-slow'));
+  if(keep) keep.stop();
+  if(S.startOpen === open && open) card.classList.add('is-settled');
+}
+function showBar(on, from){
+  S.bar = on; if(from) S.barFrom = from;
+  const bar = $('#startBar'), row = $('#fillRow'); if(!bar) return;
+  if(on){ S.startOpen = false; bar.innerHTML = barHTML(); const fresh = bar.hidden; if(fresh) bar.classList.add('is-pre'); bar.hidden = false; if(fresh){ void bar.offsetWidth; bar.classList.remove('is-pre'); } row.classList.add('sr'); $('#fillActs').innerHTML = ''; return setStartOpen(false); }
+  const ch = $('#startToggle'), hadFocus = ch && bar.contains(document.activeElement);
+  bar.hidden = true; bar.innerHTML = ''; row.classList.remove('sr');
+  const p = $('#startCard').dataset.open !== 'true' ? setStartOpen(true) : null;
+  if(hadFocus){ const back = $('#atsQ') || $('#paste'); if(back) Hifi.focusQuiet(back); }
+  return p;
+}
+const needYou = () => { const n = missing().length; return n ? `${n} need${n === 1 ? 's' : ''} you` : 'Nothing missing'; };
+function fillTextNow(){ const f = S.fill; return f.pre ? `${(typeof f.pre === 'function' ? f.pre() : f.pre).replace(/\.$/, '')}, ${needYou()}` : f.text; }
+/* the status line stays true: a finished fill keeps its first words and recounts "N need you" on every change, quietly (C7) */
+function updateFillText(){ const f = S.fill; paintBarCount(); if(!f.pre || f.busy) return; const t = fillTextNow(); if(t === f.text) return; f.text = t; const el = $('#fillStatus .txt'); if(el) el.textContent = t; }
+let SL = null;
+function paintFill(announce){
+  const row = $('#fillRow'), st = $('#fillStatus'), acts = $('#fillActs'); if(!row) return;
+  const f = S.fill; if(f.pre) f.text = fillTextNow();
+  row.hidden = !f.text;
+  const a = document.activeElement, had = a && acts.contains(a) ? a.dataset.act : null;
+  acts.innerHTML = (f.undo && !S.bar ? `<button type="button" class="btn btn-ghost btn-sm" data-act="undo-fill">${I('refresh-cw')}Undo fill</button>` : '')
+    + (f.retry ? `<button type="button" class="btn btn-secondary btn-sm" data-act="retry-fill">Try again</button>` : '');
+  if(!SL || SL.el !== st){ SL = StatusLine(st); SL.el = st; }
+  if(!f.text){ st.innerHTML = ''; return Promise.resolve(); }
+  let p;
+  if(f.busy) { SL.busy(f.text); p = Promise.resolve(); }
+  else if(announce) p = SL.done(f.text);
+  else { st.dataset.state = 'done'; st.innerHTML = `<span class="txt">${esc(f.text)}</span>`; p = Promise.resolve(); }
+  if(had){ const back = acts.querySelector(`[data-act="${had}"]`) || $('#paste'); if(back) Hifi.focusQuiet(back); }
+  const sec = $('.hx-sections'); if(sec) f.busy ? sec.setAttribute('aria-busy', 'true') : sec.removeAttribute('aria-busy');
+  return p;
+}
+function setFill(o, announce){ S.fill = {text:'', pre:null, undo:false, retry:null, busy:false, ...o}; return paintFill(announce); }
+
+/* put one value in. S.src[k] = filled from a source (pre = what was there before); no S.src and a value = typed or picked by the
+   person. An empty field takes the value; a typed value that agrees stays the person's; any disagreement becomes a conflict (C19) */
+const CHOICE = ['location', 'payType', 'reportsTo', 'workplace', 'empType', 'state'];
+const srcLabel = src => src.from === 'offer' ? 'Ashby offer' : SRC[src.from].name;
+function put(k, val, src){
+  const cur = S.f[k], emptyNow = cur === '' || cur === false || cur == null;
+  if(S.conf[k]) return;
+  if(emptyNow){ S.f[k] = val; S.src[k] = {...src, val, pre:cur}; return; }
+  if(same(k, cur, val)) return;
+  const had = S.src[k];
+  const mine = had ? {label:srcLabel(had), val:cur, quote:had.quote, src:had} : {label:CHOICE.includes(k) ? 'You picked' : 'You typed', val:cur, src:null};
+  const pre = had ? had.pre : cur;
+  S.conf[k] = {opts:[mine, {label:srcLabel(src), val, quote:src.quote, src:{...src, val, pre}}], pre};
+  S.f[k] = ''; delete S.src[k];
+}
+/* pay amount and unit travel together: never an amount with another source's unit */
+function putPay(amount, unit, srcA, srcU){
+  if(S.conf.payType) return;
+  const A0 = S.f.amount, U0 = S.f.payType, mineA = A0 && !S.src.amount, mineU = U0 && !S.src.payType;
+  if(!mineA && !mineU){ if(amount != null) put('amount', amount, srcA); if(unit) put('payType', unit, srcU); return; }
+  const agree = (!mineA || amount == null || same('amount', A0, amount)) && (!mineU || !unit || U0 === unit);
+  if(agree){ if(amount != null && unit){ if(!A0) put('amount', amount, srcA); if(!U0) put('payType', unit, srcU); } return; }
+  payConflict(amount, unit, srcA, srcU);
+}
+function payConflict(amount, unit, srcA, srcU){
+  const A0 = S.f.amount, U0 = S.f.payType, sA = S.src.amount, sU = S.src.payType;
+  const mineA = !!A0 && (!sA || changed('amount')), mineU = !!U0 && (!sU || changed('payType'));
+  const pre = {amount: sA ? sA.pre : A0, payType: sU ? sU.pre : U0};
+  const theirs = {amount: amount != null ? amount : '', payType: unit || ''};
+  const had = sA || sU, theirsNow = had && !mineA && !mineU;
+  S.conf.payType = {pair:true, pre, opts:[
+    {label: theirsNow ? srcLabel(had) : mineA && mineU ? 'You set' : mineU ? 'You picked' : 'You typed', val:{amount:A0, payType:U0}, quote: theirsNow ? had.quote : undefined,
+      src: theirsNow ? {amount: sA || null, payType: sU || null} : null},
+    {label:srcLabel(srcA || srcU), val:theirs, quote:(srcA || srcU).quote, src:{amount: amount != null ? {...srcA, val:amount, pre:pre.amount} : null, payType: unit ? {...srcU, val:unit, pre:pre.payType} : null}}]};
+  S.f.amount = ''; S.f.payType = ''; delete S.src.amount; delete S.src.payType;
+}
+function applyAlex(){
+  const r = ASHBY_ALEX, p = POSTINGS.alex, off = {kind:'copied', from:'offer'};
+  S.cand = r.name; S.posting = p;
+  Object.entries(r.offer).forEach(([k, v]) => { if(k !== 'amount') put(k, v, off); });
+  /* (a) the offer's salary has no unit: the unit comes from the posting's pay interval; the pair travels together */
+  putPay(r.offer.amount, p.unit, off, {kind:'copied', from:'posting', note:"A year, from the posting's pay interval. Ashby's offer has no unit."});
+  if(!S.f.bonusOpen){ S.f.bonusOpen = true; S.fillOpened = true; } Object.entries(r.custom).forEach(([k, v]) => put(k, v, off));
+  put('reportsTo', r.team.reportsTo, {kind:'copied', from:'team'});
+  put('location', p.loc, {kind:'copied', from:'posting'});
+  put('work', p.lines.join('\n'), {kind:'copied', from:'posting'});
+  settingsSrc();
+  if(!S.pgOverride && derivedGroup()) S.f.payrollGroup = derivedGroup();
+}
+/* expiry and sender carry "From company settings" only while they still hold the untouched default */
+function settingsSrc(){ const b = blankF(); ['expiry', 'sender'].forEach(k => { if(!S.src[k] && !S.typed[k] && S.f[k] === b[k]) S.src[k] = {kind:'copied', from:'settings', val:S.f[k]}; }); }
+function applyEmail(q){ put('startDate', '2026-06-22', {kind:'read', from:'email', quote:q || ALEX_EMAIL}); }
+function applyPriya(link, notes){
+  const p = POSTINGS.priya, hourly = {kind:'copied', from:'posting', note:"An hour, from the posting's pay interval."};
+  if(link){
+    S.posting = p;
+    put('title', p.title, {kind:'copied', from:'posting'});
+    put('work', p.lines.join('\n'), {kind:'copied', from:'posting'});
+    put('location', p.loc, {kind:'copied', from:'posting'});
+    put('workplace', p.office, {kind:'copied', from:'posting'});
+    putPay(null, p.unit, null, hourly);
+  }
+  if(notes){
+    /* each value fills only when its words are in the pasted text, and the quote shown is the slice that was pasted */
+    const hit = re => { const m = notes.match(re); return m ? m[0] : null; };
+    const rd = q => ({kind:'read', from:'notes', quote:q});
+    S.notes = notes;
+    const nm = hit(/Priya Shah/i), st = hit(/Starts Jul 1\b/i), en = hit(/(?:contractor )?through Dec 31\b/i), con = hit(/\bcontractor\b/i);
+    const rep = hit(/Jordan is her contact/i), loc = hit(/Hybrid in the NY office/i), pay = hit(/\$95\s*\/\s*hr\b/i);
+    if(con) S.notesType = con;
+    if(nm){ put('first', 'Priya', rd(nm)); put('last', 'Shah', rd(nm)); }
+    if(st) put('startDate', '2026-07-01', rd(st));
+    if(en) put('endDate', '2026-12-31', rd(en));
+    if(rep) put('reportsTo', 'Jordan Lee', rd(rep));
+    if(loc && !link){ put('location', 'Hybrid', rd(loc)); put('workplace', 'ny', rd(loc)); }
+    /* (e) pay read from notes never fills by itself: it waits on a click, with the quote beside it */
+    if(pay && !S.conf.payType){
+      const A0 = S.f.amount.trim(), U0 = S.f.payType;
+      if(!A0) S.prop.amount = {val:'95', unit:'Hourly', label:'$95 an hour', quote:pay};
+      else if(!same('amount', A0, '95') || (U0 && U0 !== 'Hourly')) payConflict('95', 'Hourly', rd(pay), rd(pay));
+    }
+  }
+}
+const NOTE_RE = [/Priya Shah/i, /Starts Jul 1\b/i, /through Dec 31\b/i, /Jordan is her contact/i, /Hybrid in the NY office/i, /\$95\s*\/\s*hr\b/i, /will set (?:her|his|their) weekly schedule/i];
+const EMAIL_RE = /(?:Let['’]s have Alex )?start June 22/i;
+function parsePaste(t){
+  const link = t.includes(PRIYA_LINK), notes = NOTE_RE.some(r => r.test(t)), em = t.match(EMAIL_RE);
+  if(WF.noMatch || !(link || notes || em)) return null;
+  return {link, notes, email: em ? em[0] : null};
+}
+function pasteMsg(t){ S.pasteMsg = t; const el = $('#pasteMsg'); if(el) el.textContent = t; say(t); const b = $('#paste'); if(b) b.focus(); }
+const emailPre = () => S.conf.startDate ? "Read Jordan's email. Its start date disagrees with Ashby." : S.cand ? "Filled from Ashby and Jordan's email." : "Filled from Jordan's email.";
+const NO_MATCH = 'Nothing in these notes matched an offer field.';
+function startFill(kind){
+  clearTimeout(S.fillT); closeList();
+  if(S.pasteMsg){ S.pasteMsg = ''; const el = $('#pasteMsg'); if(el) el.textContent = ''; }
+  /* a failed fill leaves an earlier fill's values in place, so its "Undo fill" stays */
+  const fail = text => { if(S.bar) showBar(false); return setFill({text, retry: kind === 'ashby' ? kind : null, undo: !!S.filled}, true); };
+  let reading, apply, name;
+  if(kind === 'ashby'){
+    if(WF.ashbyDown) return fail("Couldn't reach Ashby. Fill it in here, or try again.");
+    reading = `Reading ${ASHBY_ALEX.name}'s offer in Ashby…`; apply = applyAlex; name = 'Ashby';
+  } else if(kind === 'file'){
+    if(WF.fileBad) return fail("Couldn't read that file. Nothing was filled.");
+    reading = 'Reading jordan-notes.txt…'; apply = () => applyPriya(false, PRIYA_NOTES); name = 'jordan-notes.txt';
+  } else {
+    if(!S.paste.trim()) return pasteMsg('Paste a job link, notes or a file first.');
+    const r = parsePaste(S.paste);
+    if(!r) return fail(!WF.noMatch && /https?:\/\/\S+/i.test(S.paste) ? "Couldn't read this link in the prototype. In the product Bolto would read the posting." : NO_MATCH);
+    if(r.email && !r.notes && !r.link){ reading = "Reading Jordan's email…"; apply = () => applyEmail(r.email); name = "Jordan's email"; }
+    else {
+      reading = r.link && r.notes ? 'Reading the job posting and your notes…' : r.link ? 'Reading the job posting…' : 'Reading your notes…';
+      apply = () => applyPriya(r.link, r.notes ? S.paste : '');
+      name = r.link && r.notes ? 'the job posting and your notes' : r.link ? 'the job posting' : 'your notes';
+    }
+  }
+  if(S.bar) showBar(false);
+  setFill({text:reading, busy:true});
+  S.fillT = setTimeout(() => finishFill(apply, name), Motion.ms('--d-page', {raw:true}) || 400);
+}
+/* M20: values fill in reading order with the tint sweep, letter values glow, finished sections close one after another */
+async function finishFill(apply, name){
+  const before = {src:new Set(Object.keys(S.src).filter(k => S.src[k].from !== 'settings')), conf:new Set(Object.keys(S.conf)), prop:new Set(Object.keys(S.prop)),
+    notes:S.notes, notesType:S.notesType, posting:S.posting, cand:S.cand};
+  const was = {...S.f};
+  S.holdStatus = true; /* rings, rail and footer count wait for the values (M20) */
+  apply();
+  const nFill = Object.keys(S.src).filter(k => S.src[k].from !== 'settings' && !before.src.has(k)).length;
+  const nAsk = Object.keys(S.conf).filter(k => !before.conf.has(k)).length + Object.keys(S.prop).filter(k => !before.prop.has(k)).length;
+  if(!nFill && !nAsk){
+    S.holdStatus = false;
+    Object.assign(S, {notes:before.notes, notesType:before.notesType, posting:before.posting, cand:before.cand});
+    setFill({text:NO_MATCH, undo:!!S.filled}, true); return;
+  }
+  S.filled = true; S.filling = true;
+  const touched = Object.keys(S.f).filter(k => !same(k, was[k], S.f[k])).concat(Object.keys(S.conf), Object.keys(S.prop));
+  renderFields();
+  /* reading order = DOM order of the fields that changed */
+  const els = $$('.hx-sections .field[data-f]').filter(fe => touched.includes(fe.dataset.f));
+  els.forEach(fe => fe.classList.add('fill-wait'));
+  touched.forEach(k => markFresh(k)); updateLetter();
+  const ss = $('#saveState'); if(ss) ss.removeAttribute('role');
+  saveDraft(); setTimeout(() => { const s2 = $('#saveState'); if(s2) s2.setAttribute('role', 'status'); }, 800);
+  payWarning();
+  if(recheckOT()) updateHire(); /* C19 here too: a fill never silently clears a still-valid overtime answer */
+  /* M20 order: values land one fill-stagger step apart in reading order; each section's ring turns done (M3) one step after its last
+     value lands, then that section closes a beat later, finished sections at least one close-stagger step apart; the footer count turns
+     with the last ring */
+  const gap = Motion.ms('--stagger-fill'), beat = Motion.ms('--d-fast'), closeGap = Motion.ms('--stagger-close');
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  const lastAt = new Map();
+  els.forEach((fe, i) => { const p = fe.closest('.acc-panel'), id = p && p.id.replace(/^secp-/, ''); if(id) lastAt.set(id, i * gap); });
+  const valuesIn = Fill.cascade(els, fe => { fe.classList.remove('fill-wait'); Fill.sweep(fe.querySelector('.input, .select, .textarea, .affix, .seg, .conflict') || fe); });
+  const ids = SECTIONS.map(s => s.id).filter(id => lastAt.has(id)), lastRing = ids.length ? Math.max(...ids.map(id => lastAt.get(id))) + gap : 0;
+  let prevClose = -Infinity;
+  const steps = ids.map(id => {
+    const tRing = lastAt.get(id) + gap, tClose = Math.max(tRing + beat, prevClose + closeGap); prevClose = tClose;
+    return wait(tRing).then(() => {
+      CHECK && CHECK.set(id, {...secStatus(id), animate:true});
+      if(tRing === lastRing){ S.holdStatus = false; updateBar(false); }
+      return wait(tClose - tRing);
+    }).then(() => {
+      const x = ACC.s.get(id);
+      if(x && x.open && !x.pinned && x.isDone() && !x.el.contains(document.activeElement)) return ACC.close(id, {how:'auto', anchor: ACC.anchorFor(x)});
+    });
+  });
+  await Promise.all([valuesIn, ...steps]);
+  S.holdStatus = false; updateStatus(); updateBar(false);
+  S.filling = false;
+  ACC.announce = false; ACC.update(); ACC.announce = true;
+  const pre = name === "Jordan's email" && S.conf.startDate ? emailPre : nFill ? `Filled from ${name}.` : `Read ${name}. Nothing was filled without you.`;
+  await setFill({pre, undo:true}, true);
+  if(!Object.keys(S.conf).length){
+    /* the accordion's close trackers are still anchored on #atsQ; the bar shows above it (+56px) and they would chase it.
+       Nothing above the bar moves during the fold, so hold every correction until the closes and the fold have settled. */
+    Hifi.Keeper.pause();
+    try { await Promise.all([showBar(true, name), new Promise(r => setTimeout(r, Motion.ms('--d-close', {raw:true}) + 50))]); }
+    finally { Hifi.Keeper.resume(); }
+    revealBar();
+  }
+}
+function revealBar(){
+  const bar = $('#startBar'); if(!bar || bar.hidden) return;
+  const r = bar.getBoundingClientRect(), ft = $('#footer'), fh = ft && !ft.hidden ? ft.getBoundingClientRect().height : 0;
+  if(r.top < stackBottom() - 0.5 || r.bottom > window.innerHeight - fh) bar.scrollIntoView({block:'start'});
+}
+/* M21: clear only what a fill wrote; a value the fill wrote and you then changed is yours and stays */
+function undoFill(){
+  const was = {...S.f}, asked = Object.keys(S.conf).concat(Object.keys(S.prop));
+  Object.entries(S.src).forEach(([k, s]) => { if(s.from !== 'settings' && 'pre' in s && !changed(k)) S.f[k] = s.pre; });
+  Object.entries(S.conf).forEach(([k, c]) => { if(c.pair) Object.assign(S.f, c.pre); else S.f[k] = c.pre; });
+  if(S.fillOpened && !S.f.bonus && !S.f.bonusMonths) Object.assign(S.f, {bonusOpen:false, bonusRepay:false});
+  if(!S.pgOverride) S.f.payrollGroup = derivedGroup();
+  Object.assign(S, {src:{}, prop:{}, conf:{}, posting:null, notes:'', notesType:'', cand:'', filled:false, fillOpened:false});
+  recheckOT(); /* C19: undo can change pay or place back; a still-valid overtime answer is kept, one that no longer applies is cleared and said */
+  /* M21: only the values the undo takes away fade (their text), the field boxes and every other field stay still */
+  const gone = Object.keys(S.f).filter(k => !same(k, was[k], S.f[k])).concat(asked);
+  $$('.hx-sections .acc-inner .field[data-f]').filter(fe => gone.includes(fe.dataset.f)).forEach(fe => fe.classList.add('fill-out'));
+  setTimeout(() => {
+    renderFields(); payWarning();
+    SECTIONS.forEach(s => { if(secStatus(s.id).state !== 'done' && !ACC.isOpen(s.id)) ACC.open(s.id, {how:'auto'}); });
+    if(S.bar) showBar(false);
+    setFill({text:'Fill undone. What you typed is kept.'}, true);
+    const back = $('#atsQ') || $('#paste') || $('#pageH1'); if(back) Hifi.focusQuiet(back, {preventScroll:false});
+  }, Motion.ms('--d-fast'));
+}
+function setVal(k, v){ const prev = S.f.empType; S.f[k] = v; S.lastField = k; onCommit(k, prev); }
+function focusAfter(k){
+  const el = document.getElementById('f-' + k), tgt = el && el.matches('fieldset, .seg-host, [role=radiogroup]') ? (el.querySelector('input:checked') || el.querySelector('input')) : el;
+  if(tgt) tgt.focus();
+}
+/* M22: the chosen card's check draws in while the other fades out fully; then the conflict block closes (M2 recipe),
+   the value commits, the field eases from the closed height to the resolved field's, and focus lands on it */
+async function choose(k, i){
+  const c = S.conf[k]; if(!c || c.busy) return; c.busy = true; const o = c.opts[+i];
+  const mine = $(`#cc-${k}-${i}`), other = $(`#cc-${k}-${1 - i}`), body = mine && mine.closest('.conf-body');
+  if(mine) mine.classList.add('is-chosen'); if(other) other.classList.add('is-gone');
+  if(other) await Motion.after(other, Motion.ms('--d-base'));
+  if(body) await Motion.reveal(body, false);
+  const fe = mine && mine.closest('.field[data-f]'), h0 = fe ? fe.getBoundingClientRect().height : 0;
+  {
+    delete S.conf[k];
+    if(c.pair){
+      S.f.payType = o.val.payType;
+      if(o.src){ ['amount', 'payType'].forEach(x => { if(o.src[x]) S.src[x] = o.src[x]; else delete S.src[x]; }); }
+      else { delete S.src.amount; delete S.src.payType; S.typed.amount = S.typed.payType = true; }
+      if(!S.pgOverride) S.f.payrollGroup = derivedGroup();
+      markFresh('amount'); setVal('amount', o.val.amount);
+    } else {
+      if(o.src) S.src[k] = o.src; else { delete S.src[k]; S.typed[k] = true; }
+      markFresh(k); setVal(k, o.val);
+    }
+    renderFields(); payWarning(); focusAfter(c.pair ? 'payType' : k);
+    say(`${c.pair ? 'Pay' : GAPLABEL[k] || k}: ${c.pair ? payShow(o.val) : fmtV(k, o.val)}, from ${o.src ? o.label : 'what you set'}.`);
+  }
+  const nf = $(`.field[data-f="${c.pair ? 'amount' : k}"]`), ms = Motion.ms('--d-slow');
+  if(nf && h0 && ms){ const h1 = nf.getBoundingClientRect().height; if(Math.abs(h1 - h0) > 1){
+    nf.style.overflow = 'hidden'; nf.style.height = h0 + 'px'; void nf.offsetHeight;
+    nf.style.transition = 'height var(--d-slow) var(--ease-enter)'; nf.style.height = h1 + 'px';
+    await Motion.after(nf, ms); nf.style.overflow = nf.style.height = nf.style.transition = ''; } }
+}
+
+/* ===================== v2: the Ashby combobox (M19; WAI-ARIA combobox with aria-activedescendant) ===================== */
+let resT = null;
+const listOpts = () => $$('#atsList [role="option"]:not([aria-disabled="true"])');
+function renderList(){
+  const L = $('#atsList'), inp = $('#atsQ'); if(!L) return;
+  const q = S.q.trim().toLowerCase();
+  if(q.length < 2){ closeList(); return; }
+  const hit = ASHBY_ALEX.name.toLowerCase().split(' ').some(w => w.startsWith(q)) || ASHBY_ALEX.name.toLowerCase().startsWith(q);
+  L.innerHTML = hit ? `<li class="cand-opt" role="option" id="ats-opt-0" aria-selected="false" data-act="ats-pick"><span class="avatar" aria-hidden="true">${initials(ASHBY_ALEX.name)}</span>
+      <span class="cand-txt"><span class="n">${esc(ASHBY_ALEX.name)}</span><span class="r">${esc(POSTINGS.alex.title)}</span></span><span class="tag tag-success">${I('circle-check')}Offer approved</span></li>`
+    : `<li class="cand-opt" role="option" aria-disabled="true" id="ats-none">No candidates in Ashby match “${esc(S.q.trim())}”.</li>`;
+  S.active = -1; inp.removeAttribute('aria-activedescendant');
+  if(L.hidden){ L.hidden = false; void L.offsetHeight; }
+  L.classList.add('is-open'); inp.setAttribute('aria-expanded', 'true');
+}
+function closeList(){
+  const L = $('#atsList'), inp = $('#atsQ'); if(!L) return;
+  L.classList.remove('is-open'); L.hidden = true; S.active = -1;
+  if(inp){ inp.setAttribute('aria-expanded', 'false'); inp.removeAttribute('aria-activedescendant'); }
+}
+function setActive(i){
+  const os = listOpts(); if(!os.length) return;
+  S.active = (i + os.length) % os.length;
+  os.forEach((o, j) => o.setAttribute('aria-selected', String(j === S.active)));
+  $('#atsQ').setAttribute('aria-activedescendant', os[S.active].id);
+}
+function comboKey(e){
+  const L = $('#atsList');
+  if(e.key === 'ArrowDown'){ e.preventDefault(); if(L.hidden) renderList(); setActive(S.active + 1); }
+  else if(e.key === 'ArrowUp'){ e.preventDefault(); if(!L.hidden) setActive(S.active - 1); }
+  else if(e.key === 'Enter'){ if(!L.hidden && S.active >= 0){ e.preventDefault(); startFill('ashby'); } }
+  else if(e.key === 'Escape'){ if(!L.hidden){ e.preventDefault(); closeList(); } }
+}
+function startInput(el){
+  if(el.id === 'paste'){ S.paste = el.value; if(S.pasteMsg && el.value.trim()){ S.pasteMsg = ''; const m = $('#pasteMsg'); if(m) m.textContent = ''; } return; }
+  S.q = el.value; renderList();
+  clearTimeout(resT);
+  resT = setTimeout(() => { const q = S.q.trim(); if(q.length < 2) return; say(listOpts().length ? '1 candidate found.' : 'No candidates found.'); }, 600);
+}
+document.addEventListener('mousedown', e => { const o = e.target.closest && e.target.closest('#atsList [data-act="ats-pick"]'); if(o){ e.preventDefault(); startFill('ashby'); } });
+/* r12 B1: the field's screen top is read the moment focus leaves it, or the switch is pressed, before focusing the
+   switch can scroll the page */
+const snapField = () => { const a = S.lastFocusEl; if(S.view === 'edit' && a && a.isConnected && a.getClientRects().length){ S.snapEl = a; S.snapTop = a.getBoundingClientRect().top; } };
+document.addEventListener('pointerdown', e => { if(e.target.closest && e.target.closest('#hxSwitch')) snapField(); }, true);
+document.addEventListener('focusout', e => { if(S.screen === 'offer' && e.target === S.lastFocusEl) snapField(); }, true);
+document.addEventListener('focusout', e => { if(e.target.id === 'atsQ') setTimeout(() => { if(document.activeElement !== $('#atsQ')) closeList(); }, 0); });
+
+/* ===================== changes (lo-fi) ===================== */
+/* C19 (onCommit and the fill path alike): when pay or place changes, keep an overtime answer that is still one of the
+   options shown; clear it only when it no longer applies, and say why. Returns true when it cleared the answer. */
+function recheckOT(){
+  const f = S.f;
+  if(!f.duties || S.otBasis === basisKey()) return false;
+  const o = ot(), opts = o.mode === 'hourly' ? ['software', 'none', 'unsure'] : o.mode === 'salary' ? o.opts : [];
+  if(o.mode === 'wait') return false; /* the question isn't shown yet; judge the answer once pay and place are complete */
+  if(o.mode === S.otMode && opts.includes(f.duties)){ S.otBasis = basisKey(); return false; }
+  const prev = S.otMode, was = prev === 'hourly' ? {software:'Yes', none:'No', unsure:"I'm not sure"}[f.duties] : DUTIES[f.duties];
+  f.duties = ''; S.otBasis = ''; S.otMode = '';
+  say(o.mode === 'auto' || o.mode === 'na' ? `Your overtime answer "${was}" was cleared: it no longer applies at this pay and place.`
+    : prev && prev !== o.mode ? `Your overtime answer "${was}" was cleared: the overtime question changed with the pay type. Answer it again.`
+    : `Your overtime answer "${was}" was cleared: it isn't one of the options at this pay and place. Answer the overtime question again.`);
+  return true;
+}
+function onCommit(k, prevType){
+  const f = S.f;
+  if(k === 'empType' && prevType){
+    const wasE = prevType === 'ft' || prevType === 'pt';
+    if(wasE && isCon()) say("Contractor offer: overtime, payroll group and I-9 don't apply and are hidden.");
+    if(prevType === 'c' && isEmp()) say('Employee offer: the contract end date is hidden. Overtime, payroll group and I-9 now apply.');
+  }
+  if(k === 'payType' && !S.pgOverride) f.payrollGroup = derivedGroup();
+  if(k === 'payrollGroup') S.pgOverride = f.payrollGroup !== derivedGroup();
+  if(k === 'duties'){ S.otBasis = basisKey(); S.otMode = ot().mode; }
+  /* C19: keep an answer that is still one of the options shown; clear it only when it no longer applies, and say why */
+  if(['payType', 'amount', 'location', 'state', 'workplace'].includes(k)) recheckOT();
+  if(k === 'amount' || k === 'payType') payWarning();
+  /* v2: typing your own pay drops the notes' suggestion; an edited Bolto value says what the source had */
+  if(S.prop[k] && String(f[k] ?? '').trim()){ delete S.prop[k]; updateSrc(k); }
+  if(S.src[k]) updateSrc(k);
+  if(S.draft || !['bonusOpen', 'equityOpen'].includes(k)) saveDraft();
+  refresh(k, true);
+}
+function bindOffer(){
+  const m = $('#screen');
+  m.oninput = e => {
+    const el = e.target, k = el.name;
+    if(el.id === 'atsQ' || el.id === 'paste'){ startInput(el); return; }
+    if(!k || !(k in S.f) || el.type === 'radio' || el.type === 'checkbox' || el.tagName === 'SELECT' || el.type === 'date') return;
+    S.f[k] = el.value; if(!S.src[k]) S.typed[k] = true; markFresh(k); refresh(k, false);
+    if(S.save !== 'saving' && !liveRetry()) setSave('saving');
+    clearTimeout(S.saveT); S.saveT = setTimeout(saveDraft, 1000);
+  };
+  m.onchange = e => {
+    const el = e.target;
+    if(el.name === 'style'){ S.style = el.value; updateLetter(); say('Letter style: ' + el.value + '.'); return; }
+    if(el.name === 'view'){ setLetterView(el.value === 'preview', false, {fromSwitch:true}); return; }  /* arrows on the switch keep focus on it */
+    const k = el.name; if(!k || !(k in S.f)) return;
+    const prevType = S.f.empType;
+    S.lastField = k;
+    S.f[k] = el.type === 'checkbox' ? el.checked : el.value;
+    if(!S.src[k]) S.typed[k] = true;
+    if(el.type !== 'checkbox') markFresh(k);
+    onCommit(k, prevType);
+  };
+  m.onkeydown = e => { if(e.target.id === 'atsQ') comboKey(e); };
+  const d = $('#drop');
+  if(d){
+    d.addEventListener('dragover', e => { e.preventDefault(); d.classList.add('is-over'); });
+    d.addEventListener('dragleave', () => d.classList.remove('is-over'));
+    d.addEventListener('drop', e => { e.preventDefault(); d.classList.remove('is-over'); startFill('file'); });
+  }
+}
+
+function focusField(k){
+  if(document.body.classList.contains('view-letter')) setLetterView(false, true);
+  if(k === 'bonus' || k === 'bonusMonths'){ S.f.bonusOpen = true; if(k === 'bonusMonths') S.f.bonusRepay = true; updateConditional(); }
+  if(k === 'equity'){ S.f.equityOpen = true; updateConditional(); }
+  if(k in S.f) S.lastField = k;
+  const sec = secOf(k), wasOpen = ACC.isOpen(sec);
+  if(!wasOpen) ACC.open(sec, {how:'auto'});
+  let el = document.getElementById('f-' + k);
+  if(k === 'duties') el = $('#hireBody input[name="duties"]:checked') || $('#hireBody input[name="duties"]') || $('#ot-wait-link') || $('#secp-hire a, #secp-hire input');
+  if(el && el.matches('[role=radiogroup], fieldset, .seg-host')) el = el.querySelector('input:checked') || el.querySelector('input, button');
+  if(!el) return;
+  /* land below the sticky bars and above the footer, after the open settles (Hifi.reveal) */
+  /* the field (its label) is the anchor: a section's top can sit a screen above a field low in it (Work state, Invite) */
+  Hifi.reveal(el, {anchor: el.closest('.field') || el, block: wasOpen ? 'nearest' : 'start'});
+  CHECK.current(sec);
+}
+/* r12 B1: Edit -> Preview -> Edit comes back to the same field at the same screen top, even after a section opened or
+   closed meanwhile (Keeper.hold keeps it there until the open/close settles) */
+function stackBottom(){ return Math.max(0, ...$$('.hx-header, .hx-switch, .hx-chips').map(e => { const cs = getComputedStyle(e), r = e.getBoundingClientRect();
+  return /sticky|fixed/.test(cs.position) && r.height && r.top < window.innerHeight / 2 ? r.bottom : 0; })); }
+function restoreEdit(r, o = {}){  /* o.fromSwitch = restore the place, leave focus on the Edit radio */
+  const el = r && r.el && (r.el.isConnected ? r.el : (r.id && document.getElementById(r.id)));
+  if(el){
+    const sec = el.closest('.acc[data-sec]'), id = sec && sec.dataset.sec;
+    if(id && !ACC.isOpen(id)){ ACC.open(id, {how:'auto'}); const x = ACC.s.get(id); if(x.isDone() && !x.pinned) x.pending = true; }
+    if(!o.fromSwitch) Hifi.focusQuiet(el);
+    Hifi.Keeper.hold(el, r.top, Motion.ms('--d-slow', {raw:true}) + Motion.ms('--d-close', {raw:true}) + 300);
+    if(id) CHECK.current(id);
+    return;
+  }
+  if(r && r.y != null){ window.scrollTo(0, r.y); return; }
+  window.scrollTo(0, 0); if(o.fromSwitch) return; const k = S.lastField; if(k) focusField(k); else $('#pageH1').focus();
+}
+/* r12 B5: the error summary already in view stays put; otherwise the page title lands just under the sticky bars */
+function revealErrsum(es){
+  const cs = getComputedStyle(document.documentElement), bot = parseFloat(cs.scrollPaddingBottom) || 0, r = es.getBoundingClientRect();
+  if(r.top >= stackBottom() - 0.5 && r.bottom <= window.innerHeight - bot + 0.5) return;
+  const h = $('#pageH1'); (h || es).scrollIntoView({block:'start'});
+}
+function setLetterView(on, quiet, o = {}){
+  if(on && S.view !== 'preview'){ const a = S.lastFocusEl;
+    S.ret = a && a.isConnected && a.getClientRects().length ? {el:a, id:a.id, top: S.snapEl === a ? S.snapTop : a.getBoundingClientRect().top} : {y:window.scrollY}; }
+  if(!on && quiet) S.ret = null;
+  S.view = on ? 'preview' : 'edit';
+  document.body.classList.toggle('view-letter', on);
+  const r = $(`#hxSwitch input[value="${S.view}"]`); if(r && !r.checked){ r.checked = true; Segmented.sync($('#hxSwitch .seg'), true); }
+  if(on){ window.scrollTo(0, 0); if(!o.fromSwitch){ const t = $('#letterTitle'); t && t.focus({preventScroll:true}); } }
+  else if(!quiet){ const r = S.ret; S.ret = null; restoreEdit(r, o); }
+}
+function pressReview(){
+  const miss = missing();
+  if(document.body.classList.contains('view-letter')) setLetterView(false, true);
+  if(miss.length){
+    S.errItems = miss.map(m => ({k:m.k, msg:m.msg}));
+    $('#errsumSlot').dataset.html = '';
+    renderErrors(); updateStatus();
+    /* rule 8: reopen only the sections with gaps */
+    new Set(miss.map(m => secOf(m.k))).forEach(id => ACC.open(id, {how:'auto', animate:false}));
+    const es = $('#errsum'); es.focus({preventScroll:true}); revealErrsum(es);
+  } else { S.errItems = null; S.sendErr = false; go('review', {animate:true}); }
+}
+
+/* ===================== screen: review ===================== */
+function reviewHTML(){
+  const f = S.f, w = esc(who()), s = sender();
+  /* v2 (15-v2 log, Review): each row carries its source or rule and what you chose */
+  const items = [], row = (t, why) => `${t}<span class="why">${why}</span>`;
+  if(isEmp() && f.location === 'Remote') items.push(['map-pin', row(`Works from ${esc(stateName(f.state))}`, S.cand ? 'You chose it. Ashby’s offer has no state.' : 'You chose it'), 'state', 'work state']);
+  if(isEmp()){
+    items.push(['badge-dollar-sign', row(`Payroll group: ${esc(f.payrollGroup)}`, S.pgOverride ? 'You chose it' : `Bolto rule: ${f.payType === 'Hourly' ? 'hourly' : 'salaried'} pay`), 'payrollGroup', 'payroll group']);
+    items.push(['clock-3', otReview(), 'duties', 'overtime']);
+    items.push(['shield-check', row('I-9 collected after signing', 'Bolto rule: every US employee needs one'), null]);
+  } else items.push(['file-text', row('Contractor: no payroll group, overtime or I-9', 'You chose: contractor (1099)'), 'empType', 'worker type']);
+  items.push(['mail', row(f.invite ? 'Invited to Bolto after signing' : 'Not invited to Bolto automatically', f.invite ? 'On by default' : 'You turned it off'), 'invite', 'invite']);
+  return `<div class="rv" id="rvPage">
+    <h1 class="hx-title" id="pageH1" tabindex="-1">Check and send ${w}'s offer</h1>
+    <div id="sendErrSlot">${S.sendErr ? sendErrHTML() : ''}</div>
+    <div class="rv-grid">
+      <section aria-labelledby="rv-letter"><h2 id="rv-letter" class="sr">The letter</h2><div class="paper">${letterHTML(true)}</div>
+        <p class="attach">${I('file-text')}<span>Sent with the letter: ${isCon() ? 'Contractor Confidentiality and IP Assignment Agreement' : 'Confidential Information and Invention Assignment Agreement'} (the company's own document, not shown here).</span></p></section>
+      <div class="rv-side">
+        <section class="card" aria-labelledby="rv-nil"><h2 class="card-h" id="rv-nil">${I('eye')}Not in the letter</h2>
+          <ul class="nil">${items.map(([ic, t, k, n]) => `<li>${I(ic)}<span>${t}</span>${k ? `<a href="#f-${k}" class="linkbtn" data-change="${k}">Change<span class="sr"> ${n}</span></a>` : '<span></span>'}</li>`).join('')}</ul></section>
+        <section class="card" aria-labelledby="rv-email"><h2 class="card-h" id="rv-email">${I('mail')}The email ${w} gets</h2>
+          <div class="email">
+            <dl><dt>To</dt><dd>${esc(f.email)}</dd><dd><a href="#f-email" class="linkbtn" data-change="email">Change<span class="sr"> email address</span></a></dd>
+                <dt>From</dt><dd>${esc(s.name)} via Bolto</dd><dd></dd>
+                <dt>Subject</dt><dd>Your offer from ${COMPANY}</dd><dd></dd></dl>
+            <div class="b"><p>Hi ${w},</p>
+              <div><div class="lbl"><label for="pnote">Personal note <span class="opt">(optional)</span></label></div>
+              <textarea class="textarea" id="pnote" name="note">${esc(f.note)}</textarea></div>
+              <p>Your offer letter is ready to review and sign.</p><p>Please sign by ${fdate(f.expiry)}.</p><span class="fakebtn" aria-hidden="true">Review and sign</span><span class="sr">A "Review and sign" button.</span></div>
+          </div></section>
+      </div>
+    </div></div>`;
+}
+function floorWhose(key){ const st = workState(), fl = FLOORS[st]; return fl && !(fl.fedKeys || []).includes(key) ? `${place(st)}'s` : 'the federal'; }
+function otReview(){
+  const o = ot(), f = S.f, amt = num(f.amount), fl = FLOORS[workState()] || FED, d = f.duties;
+  const unit = f.payType === 'Hourly' ? ' an hour' : '';
+  const r = (t, why) => `${t}<span class="why">${why}</span>`;
+  if(o.mode === 'auto'){ const key = f.payType === 'Hourly' ? 'hourly' : 'salary';
+    return r(otWords(false), `Bolto rule: ${money(amt)}${unit} is below ${floorWhose(key)} ${money(fl[key])} floor`); }
+  if(d === 'none') return r(otWords(false), 'You chose: none of these');
+  const key = o.mode === 'hourly' ? 'hourly' : d === 'software' ? 'comp' : (d === 'manage' || d === 'admin') ? 'mgr' : 'salary';
+  return r(otWords(otFinal()), `You chose: ${DSHORT[d] || d} · ${money(amt)}${unit} clears ${floorWhose(key)} ${money(fl[key])} floor`);
+}
+/* the one place pay and classification get confirmed (15-v2 log, Review; decided: shown) */
+function approvalText(){
+  const f = S.f, pay = `${money(num(f.amount))} ${f.payType === 'Hourly' ? 'an hour' : 'a year'}`;
+  const kind = isCon() ? 'contractor (1099)' : `${f.empType === 'ft' ? 'full-time' : 'part-time'} W-2 employee`;
+  const otp = isCon() ? 'paid against invoices' : (otFinal() ? 'no overtime pay' : 'gets overtime pay');
+  const m = +f.bonusMonths, bonus = f.bonusOpen && validBonus() ? `a ${money(num(f.bonus))} signing bonus${f.bonusRepay
+    ? `, repaid if ${who() || 'they'} ${isCon() ? 'ends the engagement' : 'resigns or is let go for cause'} within ${m} month${m === 1 ? '' : 's'}` : ', not repaid'}` : 'no signing bonus';
+  const eq = f.equityOpen && f.equity.trim() ? `, equity: ${f.equity.trim()}` : '';
+  return `You're approving: ${pay}, ${bonus}${eq}, ${kind}, ${otp}. Sent to ${f.email.trim()}.`;
+}
+const ftRO = typeof ResizeObserver === 'function' ? new ResizeObserver(() => ftH()) : null;
+function ftH(){ const ft = $('#footer'); if(!ft) return; document.documentElement.style.setProperty('--ft-h', ft.offsetHeight + 'px'); if(ftRO && !ft.__ro){ ft.__ro = true; ftRO.observe(ft); } }
+function footerReview(){
+  return `<button type="button" class="btn btn-secondary" data-act="edit">${I('arrow-left')}Edit offer</button><p class="approve-ft" id="approveLine">${esc(approvalText())}</p>
+    <button type="button" class="btn btn-primary btn-send" data-act="send" id="sendBtn" aria-describedby="approveLine"><span class="label">Send offer to ${esc(who())}${I('send')}</span><span class="spin">${I('loader-circle', 'spinner')}</span></button>`;
+}
+function sendErrHTML(){
+  return `<div class="callout callout-error" id="sendErr" tabindex="-1" role="group" aria-labelledby="sendErr-h" aria-describedby="sendErr-b" style="margin-top:var(--s4)">${I('circle-alert')}<div><h2 class="callout-t" id="sendErr-h">Couldn't send</h2><p id="sendErr-b">Nothing was sent to ${esc(who())}. Try again.</p></div></div>`;
+}
+
+/* ===================== screen: sent ===================== */
+function sentHTML(){
+  const steps = ['Sent', 'Viewed', 'Signed'].concat(S.f.invite ? ['Invited'] : []);
+  return `<div class="sent">
+    <svg class="sent-mark" viewBox="0 0 72 72" aria-hidden="true"><circle cx="36" cy="36" r="32"/><path d="M23 37l9 9 17-19"/></svg>
+    <h1 class="hx-title" id="pageH1" tabindex="-1">Offer sent to ${esc(fullName())}</h1>
+    <p>We've emailed ${esc(who())} a link to read and e-sign the letter.</p>
+    <p>${esc(who())} has until ${fdate(S.f.expiry)}, to sign.</p>
+    <ol class="track" aria-label="Offer status">${steps.map((t, i) => `<li class="${i === 0 ? 'on' : ''}"><span class="st">${i === 0 ? I('check') : ''}</span><span>${t}</span>${i === 0 ? '<span class="sr"> (current)</span>' : ''}</li>`).join('')}</ol>
+    <button type="button" class="btn btn-secondary" data-act="to-list">Back to offer letters</button></div>`;
+}
+
+/* ===================== screen: offer letters (stand-in, out of scope) ===================== */
+function listHTML(){
+  const f = S.f, nm = fullName() || 'Untitled offer';
+  const st = S.sent ? ['Sent', 'tag-success', 'circle-check'] : missing().length ? ['Draft', 'tag-neutral', 'circle-dashed'] : ['Ready to send', 'tag-success', 'circle-check'];
+  const row = (S.draft || S.sent) ? `<table class="tbl"><thead><tr><th scope="col">Candidate</th><th scope="col">Role</th><th scope="col">Status</th></tr></thead>
+    <tbody><tr><td>${S.sent ? esc(nm) : `<a href="#" data-act="open-draft">${esc(nm)}</a>`}</td><td>${esc(f.title) || '<span aria-label="none">—</span>'}</td><td><span class="tag ${st[1]}">${I(st[2])}${st[0]}</span></td></tr></tbody></table>` : '<p class="plain">No offers yet.</p>';
+  return `<div class="list">
+    <div class="list-head"><h1 class="hx-title" id="pageH1" tabindex="-1">Offer letters</h1><button type="button" class="btn btn-primary" data-act="create">${I('plus')}Create offer letter</button></div>
+    ${row}</div>`;
+}
+
+/* ===================== routing ===================== */
+function go(screen, opts = {}){
+  const doGo = () => {
+    if(S.screen === 'offer' && screen !== 'offer') S.newOffer = false;
+    S.screen = screen; S.view = 'edit';
+    document.body.classList.remove('view-letter');
+    document.body.style.minHeight = '';
+    const m = $('#screen'); m.oninput = null; m.onchange = null; ACC = null; CHECK = null;
+    $('#crumbs').innerHTML = crumbsHTML();
+    $('#saveState').hidden = screen !== 'offer';
+    const ft = $('#footer'), fi = $('#footerIn');
+    if(screen === 'offer'){
+      m.innerHTML = (`<div class="hx-switch" id="hxSwitch">${Segmented.html('view', [['edit', 'Edit'], ['preview', 'Preview']], 'edit', {label:'View'})}</div>`) + offerHTML();
+      fi.innerHTML = footerOffer(); ft.hidden = false;
+      S.hireHTML = ''; bindOffer(); S.lastN = null; S.otSaid = null;
+      CHECK = new Checklist({items: SECTIONS.map(s => ({id:s.id, label:s.title})), rail: $('#rail'), chips: $('#chips'), onJump: jump});
+      ACC = new Accordion({sections: SECTIONS.map(s => ({id:s.id, title:s.title, el: $('#sec-' + s.id), isDone: () => secStatus(s.id).state === 'done', summary: () => summary(s.id)})),
+        onToggle: (id, open, how) => { if(how === 'user') CHECK.current(id); }});
+      if(isEmp() && !S.pgOverride && derivedGroup()) S.f.payrollGroup = derivedGroup();
+      updateConditional(); updateHeader(); updateHire(null); updateLetter(); updateBar(false, true); renderErrors();
+      SECTIONS.forEach(s => CHECK.set(s.id, {...secStatus(s.id), animate:false}));
+      /* rule 2: a new offer opens with all six open; a draft opens with done sections collapsed */
+      const isNew = S.newOffer;
+      ACC.init(id => isNew || secStatus(id).state !== 'done');
+      Segmented.init(m);
+      SL = null; paintFill(false); updateSrcLines(); updateChecks(false);
+      setSave(S.draft ? 'saved' : '', S.save === 'saved-back' ? S.savedText : undefined);
+      if(S.saveTextOnce){ setSave('saved', S.saveTextOnce); S.saveTextOnce = ''; }
+      if(WF.saveFail && S.draft && S.failOnLoad){ setSave('failed'); S.failOnLoad = false; }
+    }
+    if(screen === 'review'){ m.innerHTML = reviewHTML(); fi.innerHTML = footerReview(); ft.hidden = false; ftH(); m.oninput = e => { if(e.target.id === 'pnote') S.f.note = e.target.value; }; }
+    if(screen === 'sent'){ m.innerHTML = sentHTML(); ft.hidden = true; fi.innerHTML = ''; }
+    if(screen === 'list'){ m.innerHTML = listHTML(); ft.hidden = true; fi.innerHTML = ''; }
+    setTitle();
+    window.scrollTo(0, 0);
+    /* r3: one enter in reading order, --stagger apart; the header joins on first load only; the footer rises last (never shown over an empty page) */
+    const shown = el => el && !el.hidden;
+    const parts = [!S.booted && $('#hdr'), ...(screen === 'offer' ? [$('#rail'), $('#formPane'), $('#letterPane')] : [m.firstElementChild]), ft].filter(shown);
+    if(opts.animate !== false) Motion.enter(parts); else if(!S.booted) Motion.enter([$('#hdr')]);
+    /* the first load leaves focus at the top of the page (skip link first); only a screen change moves it to the h1 */
+    const firstLoad = !S.booted; S.booted = true;
+    if(!opts.noFocus && !firstLoad){ const h = $('#pageH1'); if(h) h.focus({preventScroll:true}); }
+    if(opts.after) opts.after();  /* runs on the new screen, after the leave fade */
+  };
+  /* M15: out (--d-fast fade), then the new view rises */
+  const m = $('#screen');
+  if(opts.animate && m.firstElementChild && Motion.ms('--d-fast')){ m.classList.add('hx-leave'); setTimeout(() => { m.classList.remove('hx-leave'); doGo(); }, Motion.ms('--d-fast')); }
+  else doGo();
+}
+/* r12 B2: from Preview, any chip (done or not) goes back to Edit, opens its section and focuses its first field */
+function jump(id){
+  const inPreview = document.body.classList.contains('view-letter');
+  if(inPreview) setLetterView(false, true);
+  const miss = missing(), first = miss.find(m => secOf(m.k) === id);
+  if(first){ focusField(first.k); return; }
+  if(!ACC.isOpen(id)) ACC.open(id, {how:'auto'});
+  if(inPreview){
+    const fe = $$(`#secp-${id} .field[data-f]`).find(x => x.getClientRects().length), k = fe && fe.dataset.f;
+    if(k && document.getElementById('f-' + k)){ focusField(k); return; }
+    const el = $(`#secp-${id} .acc-inner`).querySelector('input:checked, input, select, textarea, button, a[href]');
+    if(el){ Hifi.reveal(el, {anchor: $('#sec-' + id)}); CHECK.current(id); return; }
+  }
+  /* land below the sticky bars once the open settles (Hifi.reveal), not off screen or under the header */
+  Hifi.reveal($('#sec-' + id + ' .acc-btn'), {anchor: $('#sec-' + id)}); CHECK.current(id);
+}
+
+document.addEventListener('click', e => {
+  const t = e.target.closest('button, a'); if(!t || t.closest('.demo')) return;
+  if(t.id === 'countBtn'){ const miss = missing(); if(miss.length) focusField(miss[0].k); else pressReview(); return; }
+  if(t.dataset.go){ e.preventDefault(); focusField(t.dataset.go); return; }
+  if(t.dataset.change){ e.preventDefault(); const k = t.dataset.change; S.sendErr = false; go('offer', {noFocus:true, animate:false}); focusField(k); return; }
+  if(t.id === 'bonusAdd'){ S.f.bonusOpen = true; onCommit('bonusOpen'); $('#f-bonus').focus(); return; }
+  if(t.id === 'bonusRemove'){ Object.assign(S.f, {bonusOpen:false, bonus:'', bonusRepay:false, bonusMonths:''}); ['bonus', 'bonusMonths'].forEach(k => $('#f-' + k).value = ''); $('#f-bonusRepay').checked = false; onCommit('bonusOpen'); $('#bonusAdd').focus(); say('Signing bonus removed.'); return; }
+  if(t.id === 'equityAdd'){ S.f.equityOpen = true; onCommit('equityOpen'); $('#f-equity').focus(); return; }
+  if(t.id === 'equityRemove'){ Object.assign(S.f, {equityOpen:false, equity:''}); $('#f-equity').value = ''; onCommit('equityOpen'); $('#equityAdd').focus(); say('Equity removed.'); return; }
+  if(t.dataset.choose){ choose(t.dataset.choose, t.dataset.i); return; }
+  if(t.dataset.use){ const k = t.dataset.use, p = S.prop[k]; if(!p) return;
+    delete S.prop[k];
+    const rd = {kind:'read', from:'notes', quote:p.quote};
+    if(S.f.payType && !S.src.payType && S.f.payType !== p.unit){
+      /* your pay unit and the notes' pair disagree: one pay conflict, never $95 a year */
+      putPay(p.val, p.unit, rd, rd); renderFields(); focusAfter('payType'); say('Your pay unit and your notes disagree. Pick one.'); return;
+    }
+    S.src[k] = {...rd, val:p.val, pre: S.src[k] ? S.src[k].pre : S.f[k]};
+    if(S.f.payType !== p.unit){ S.src.payType = {...rd, val:p.unit, pre: S.src.payType ? S.src.payType.pre : S.f.payType}; S.f.payType = p.unit; }
+    if(!S.pgOverride) S.f.payrollGroup = derivedGroup();
+    say(`Pay set to ${p.label}, from your notes.`);
+    markFresh(k); setVal(k, p.val); renderFields(); payWarning(); focusAfter(k); return; }
+  if(t.dataset.revert){ const k = t.dataset.revert, s = S.src[k]; if(!s) return;
+    markFresh(k); setVal(k, s.val); renderFields(); payWarning(); focusAfter(k);
+    say(`Back to ${SRC[s.from].name.toLowerCase() === 'ashby' ? "Ashby's" : 'the source'} value: ${fmtV(k, s.val)}.`); return; }
+  const a = t.dataset.act; if(!a) return;
+  if(t.tagName === 'A') e.preventDefault();
+  if(a === 'retry-fill') startFill(S.fill.retry);
+  if(a === 'fill') startFill('paste');
+  if(a === 'pick-file') startFill('file');
+  if(a === 'undo-fill') undoFill();
+  if(a === 'start-toggle') setStartOpen(!S.startOpen);
+  if(a === 'review') pressReview();
+  if(a === 'retry') saveDraft();
+  if(a === 'to-list'){ S.errItems = null; go('list', {animate:true}); }
+  if(a === 'create'){ fresh(); go('offer', {animate:true}); }
+  if(a === 'open-draft'){ S.errItems = null; S.saveTextOnce = 'Saved ' + S.savedAt; go('offer', {animate:true}); }
+  if(a === 'edit'){ S.sendErr = false; go('offer', {animate:true}); }
+  if(a === 'send'){
+    const b = $('#sendBtn'); busy(b, true);
+    setTimeout(() => {
+      if(WF.sendFail){ busy(b, false); S.sendErr = true; $('#sendErrSlot').innerHTML = sendErrHTML(); setTitle(); $('#sendErr').focus(); }
+      else { S.sendErr = false; S.sent = true; go('sent', {animate:true}); }
+    }, 700);
+  }
+});
+document.addEventListener('focusin', e => {
+  if(S.screen !== 'offer') return;
+  if(e.target.closest && e.target.closest('.hx-form')){ S.lastFocusEl = e.target; S.snapEl = null; }
+  const k = e.target.name; if(k && k in S.f){ S.lastField = k; highlight(k); }
+  const sec = e.target.closest && e.target.closest('.acc'); if(sec && CHECK) CHECK.current(sec.dataset.sec);
+});
+document.addEventListener('focusout', e => {
+  if(S.screen !== 'offer') return;
+  highlight(null);
+  /* validate on blur, never per keystroke: only a value that was typed and is wrong (an empty field waits for Review offer) */
+  const k = e.target.name;
+  if((k === 'email' || k === 'amount') && S.f[k].trim() && (k === 'email' ? !validEmail() : !validAmount())){ S.blurErr.add(k); renderErrors(); }
+});
+
+/* ===================== demo states (prototype chrome only) ===================== */
+const ALEX = {empType:'ft', first:'Alex', last:'Rivera', email:'alex.rivera@example.com', title:'Senior full-stack engineer', startDate:'2026-06-15',
+  reportsTo:'Jordan Lee', location:'Remote', state:'CA', payType:'Salary', amount:'150,000', bonusOpen:true, bonus:'10,000', bonusRepay:true, bonusMonths:'12',
+  payrollGroup:'US Salaried', duties:'software', expiry:'2026-06-01'};
+const PRIYA = {empType:'c', first:'Priya', last:'Shah', email:'priya.shah@example.com', title:'Product designer', startDate:'2026-07-01', endDate:'2026-12-31',
+  reportsTo:'Jordan Lee', location:'Hybrid', workplace:'ny', payType:'Hourly', amount:'95', expiry:'2026-06-20'};
+const PARTLY = {...ALEX, startDate:'', state:'', duties:''};
+const OT = {
+  'ot-150-ca': {location:'Remote', state:'CA', payType:'Salary', amount:'150,000'},
+  'ot-90-ca': {location:'Remote', state:'CA', payType:'Salary', amount:'90,000'},
+  'ot-60-ca': {location:'Remote', state:'CA', payType:'Salary', amount:'60,000'},
+  'ot-40h-ca': {location:'Remote', state:'CA', payType:'Hourly', amount:'40', payrollGroup:'US Hourly', bonusOpen:false, bonus:'', bonusRepay:false, bonusMonths:''},
+  'ot-65h-ca': {location:'Remote', state:'CA', payType:'Hourly', amount:'65', payrollGroup:'US Hourly', bonusOpen:false, bonus:'', bonusRepay:false, bonusMonths:''},
+  'ot-45-ny': {location:'Hybrid', state:'', workplace:'ny', payType:'Salary', amount:'45,000'},
+  'ot-30h-tx': {location:'Remote', state:'TX', payType:'Hourly', amount:'30', payrollGroup:'US Hourly', bonusOpen:false, bonus:'', bonusRepay:false, bonusMonths:''},
+  'ot-nostate': {location:'Remote', state:'', payType:'Salary', amount:'150,000'}
+};
+function load(vals, draft = true){
+  fresh(); Object.assign(S.f, vals); S.otBasis = basisKey(); S.otMode = S.f.duties ? ot().mode : ''; S.draft = draft; S.newOffer = !draft;
+  if(draft){ S.savedAt = md(TODAY) + ', 9:41 AM'; }
+}
+/* v2 presets: the fill runs through the same put() rules as a live fill, only without the wait (lofi-v2) */
+function filledAlex(){ fresh(); S.q = ASHBY_ALEX.name; applyAlex(); S.filled = true; S.draft = true; S.newOffer = false; S.savedAt = md(TODAY) + ', 9:41 AM'; S.fill = {pre:'Filled from Ashby.', undo:true}; S.bar = true; S.barFrom = 'Ashby'; }
+function readyAlex(){ filledAlex(); Object.assign(S.f, {empType:'ft', state:'CA', duties:'software'}); S.typed.empType = S.typed.state = S.typed.duties = true; S.otBasis = basisKey(); S.otMode = ot().mode; }
+/* Priya's offer expires June 20, 2026 (brief p2 dummy data), set by the person, so it carries no company-setting label */
+function filledPriya(){ fresh(); S.f.expiry = '2026-06-20'; S.typed.expiry = true; S.paste = PRIYA_LINK + '\n\n' + PRIYA_NOTES; applyPriya(true, PRIYA_NOTES); S.filled = true; S.draft = true; S.newOffer = false; S.savedAt = md(TODAY) + ', 9:41 AM';
+  S.fill = {pre:'Filled from the job posting and your notes.', undo:true}; S.bar = true; S.barFrom = 'the job posting and your notes'; }
+function readyPriya(){ filledPriya(); S.f.empType = 'c'; S.f.email = 'priya.shah@example.com'; S.typed.empType = S.typed.email = true;
+  const p = S.prop.amount; S.f.amount = p.val; S.src.amount = {kind:'read', from:'notes', quote:p.quote, val:p.val, pre:''}; delete S.prop.amount; }
+const DEMO_GROUPS = [
+  {label:'Alex (employee)', items:[['alex-start', 'Start (nothing filled)'], ['alex-filling', 'Filling'], ['alex-filled', 'Filled from Ashby (2 need you)'], ['alex-conflict', "Conflict (Ashby + Jordan's email)"], ['alex-errors', 'Invalid (pressed Review offer)'], ['alex-ready', 'Ready'], ['alex-back', 'Back to a draft'], ['alex-savefail', 'Saving fails'], ['alex-review', 'Review'], ['alex-sent', 'Sent']]},
+  {label:'Priya (contractor)', items:[['priya-filled', 'Notes pasted, filled'], ['priya-ready', 'Ready'], ['priya-review', 'Review']]},
+  {label:'Overtime cases (Alex)', items:[['ot-150-ca', 'Salary $150,000 · remote, California'], ['ot-90-ca', 'Salary $90,000 · remote, California'], ['ot-60-ca', 'Salary $60,000 · remote, California'], ['ot-40h-ca', 'Hourly $40 · remote, California'], ['ot-65h-ca', 'Hourly $65 · remote, California'], ['ot-45-ny', 'Salary $45,000 · hybrid, New York office'], ['ot-30h-tx', 'Hourly $30 · remote, Texas'], ['ot-nostate', 'Salary $150,000 · remote, no state yet']]},
+  {label:'Out of scope', items:[['list', 'Offer letters list (stand-in)']]}
+].map(g => ({label:g.label, items:g.items.map(([id, label]) => ({id, label}))}));
+let DEMO;
+function preset(p, animate = true){
+  const A = {animate};
+  WF.saveFail = !!$('[data-tog="saveFail"]')?.checked;
+  clearTimeout(S && S.fillT);
+  if(p === 'alex-start' || p === 'alex-empty'){ fresh(); go('offer', A); }
+  else if(p === 'alex-filling'){ fresh(); S.q = ASHBY_ALEX.name; S.fill = {text:`Reading ${ASHBY_ALEX.name}'s offer in Ashby…`, busy:true}; go('offer', {noFocus:true, ...A}); }
+  else if(p === 'alex-filled'){ filledAlex(); go('offer', A); }
+  else if(p === 'alex-conflict'){ filledAlex(); S.paste = ALEX_EMAIL; applyEmail(ALEX_EMAIL); S.fill = {pre:emailPre, undo:true}; S.bar = false; go('offer', A); }
+  else if(p === 'alex-errors'){ filledAlex(); S.f.email = 'alex.rivera@example'; delete S.src.email; S.typed.email = true; go('offer', {...A, after: pressReview}); }
+  else if(p === 'alex-ready'){ readyAlex(); go('offer', A); }
+  else if(p === 'alex-review'){ readyAlex(); go('review', A); }
+  else if(p === 'alex-sent'){ readyAlex(); S.sent = true; go('sent', A); }
+  else if(p === 'alex-back'){ filledAlex(); S.f.empType = 'ft'; S.typed.empType = true; S.fill = {text:''}; S.bar = false; S.savedAt = 'May 22, 4:12 PM'; S.saveTextOnce = 'Saved May 22, 4:12 PM'; go('offer', A); }
+  else if(p === 'alex-savefail'){ filledAlex(); WF.saveFail = true; const t = $('[data-tog="saveFail"]'); if(t) t.checked = true; S.failOnLoad = true; go('offer', A); }
+  else if(p === 'priya-filled'){ filledPriya(); go('offer', A); }
+  else if(p === 'priya-ready'){ readyPriya(); go('offer', A); }
+  else if(p === 'priya-review'){ readyPriya(); go('review', A); }
+  else if(p === 'list'){ fresh(); go('list', A); }
+  else if(OT[p]){ load({...ALEX, duties:'', ...OT[p]}); go('offer', {noFocus:true, ...A, after: () => focusField('duties')}); }
+  if(DEMO) DEMO.mark(p);
+  const l = $('#lede'); if(l) l.textContent = ledeText();
+}
+window.preset = preset;  /* used by the capture script */
+
+Toggletip.init(document);
+Hifi.shell();
+DEMO = Demo.mount({groups: DEMO_GROUPS, note:'Prototype controls: jump between states. The fill is simulated with demo data: search "Alex", or paste the demo posting link, notes or email.',
+  toggles:[{id:'saveFail', label:'Saving fails'}, {id:'sendFail', label:'Sending fails'}, {id:'ashbyDown', label:'Ashby unreachable'}, {id:'fileBad', label:'File unreadable'}, {id:'noMatch', label:'Notes match nothing'}, {id:'atsOff', label:'Ashby not connected'}],
+  onPick: id => preset(id),
+  onToggle: (id, on) => { WF[id] = on; const l = $('#lede'); if(l) l.textContent = ledeText();
+    if(id === 'atsOff' && S.screen === 'offer'){ const sc = $('#startCard'); if(sc){ sc.outerHTML = startHTML(); SL = null; paintFill(false); bindOffer(); } } }});
+preset(new URLSearchParams(location.search).get('state') || 'alex-start');
+</script>
+</body>
+</html>

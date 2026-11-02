@@ -1,0 +1,1079 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>New offer · Bolto</title>
+<!-- Bolto offer flow, v1: the employer types everything in. Shared components: ../shared/. -->
+<link rel="icon" href="../shared/brand/brandmark-ink.svg">
+<link rel="stylesheet" href="../shared/tokens.css">
+<link rel="stylesheet" href="../shared/hifi.css">
+<style>
+/* Page-level overrides (tokens only). The floor bar's fill is a measurement, not an action, so it's neutral, not Bolto Blue. */
+.floor-fill { background: var(--ink-2); }
+.result.neutral .ic { color: var(--ink-2); }
+/* Narrow-phone fit (320px). An input's default size set the affix's min-content, and a grid item's min-width:auto let it push
+   the accordion past the screen; floor labels are nudged back inside the track by clampFloorLabs(). */
+.acc-clip, .acc-inner { min-width: 0; }
+.affix input { width: 0; }
+.floor-lab { translate: var(--nudge, 0) 0; }
+/* The email preview's button is a picture of what the hire sees, not a control: muted, so Send stays the one primary on Review. */
+.fakebtn { min-height: 28px; padding: 0 var(--s3); background: var(--surface-sunk); color: var(--ink-2); border: 1px solid var(--line-2); font: var(--p4); }
+/* Hifi.focusQuiet: a programmatic focus after a touch tap draws no keyboard ring (r12 B8) */
+[data-quiet-focus]:focus-visible, .acc-btn[data-quiet-focus]:focus-visible::after { outline: none; }
+.affix:has(input[data-quiet-focus]), .seg-opt:has(input[data-quiet-focus]), .ropt:has(input[data-quiet-focus]), .chk:has(input[data-quiet-focus]) .box, .rcard input[data-quiet-focus] + .rcard-box { outline: none; }
+</style>
+</head>
+<body>
+<a class="sr" href="#screen">Skip to content</a>
+<header class="hx-header" id="hdr">
+  <div class="hx-header-in">
+    <a class="hx-logo" href="#" data-act="to-list" aria-label="Bolto, offer letters"><img class="full" src="../shared/brand/full-ink.svg" alt=""><img class="mark" src="../shared/brand/brandmark-ink.svg" alt=""></a>
+    <nav class="hx-crumbs" aria-label="Breadcrumb" id="crumbs"></nav>
+    <div class="hx-save" id="saveState"></div>
+  </div>
+</header>
+<main id="screen"></main>
+<footer class="hx-footer" id="footer" hidden><div class="hx-footer-in" id="footerIn"></div></footer>
+<div id="hx-live" class="sr" aria-live="polite"></div>
+
+<script src="../shared/icons/icons.js"></script>
+<script src="../shared/hifi.js"></script>
+<script>
+'use strict';
+const {$, $$, esc, Motion, say, Ring, Accordion, Checklist, Toggletip, Segmented, busy, Demo, SaveMark} = Hifi;
+const I = (n, c) => Icons.svg(n, c);
+
+/* ===================== dummy data (brief p2), ported from the lo-fi ===================== */
+const TODAY = new Date(2026, 4, 25);            // prototype "today": Monday May 25, 2026
+const COMPANY = 'Acme Co.';
+const PEOPLE = ['Jordan Lee', 'Sam Patel'];
+const SENDERS = [{id:'sam', name:'Sam Patel', title:'Head of People', email:'sam.patel@example.com'}];
+const OFFICES = [{id:'ny', name:'New York office', state:'NY-NYC'}];
+const STATES = [['AL','Alabama'],['AK','Alaska'],['AZ','Arizona'],['AR','Arkansas'],['CA','California'],['CO','Colorado'],['CT','Connecticut'],['DE','Delaware'],['DC','District of Columbia'],['FL','Florida'],['GA','Georgia'],['HI','Hawaii'],['ID','Idaho'],['IL','Illinois'],['IN','Indiana'],['IA','Iowa'],['KS','Kansas'],['KY','Kentucky'],['LA','Louisiana'],['ME','Maine'],['MD','Maryland'],['MA','Massachusetts'],['MI','Michigan'],['MN','Minnesota'],['MS','Mississippi'],['MO','Missouri'],['MT','Montana'],['NE','Nebraska'],['NV','Nevada'],['NH','New Hampshire'],['NJ','New Jersey'],['NM','New Mexico'],['NY-NYC','New York City area (NYC, Nassau, Suffolk, Westchester)'],['NY-REST','New York (rest of state)'],['NC','North Carolina'],['ND','North Dakota'],['OH','Ohio'],['OK','Oklahoma'],['OR','Oregon'],['PA','Pennsylvania'],['RI','Rhode Island'],['SC','South Carolina'],['SD','South Dakota'],['TN','Tennessee'],['TX','Texas'],['UT','Utah'],['VT','Vermont'],['VA','Virginia'],['WA','Washington'],['WV','West Virginia'],['WI','Wisconsin'],['WY','Wyoming']];
+const PLACE = {'NY-NYC':'the New York City area', 'NY-REST':'New York outside the NYC area'};
+/* Overtime floors, 2026 (lo-fi, unchanged). salary: below it, overtime always applies. hourly: computer-job hourly floor.
+   comp: salary needed for the software option. mgr: salary needed for the manager and office-work options. */
+const FED = {salary:35568, hourly:27.63, comp:35568, mgr:35568};
+const FLOORS = {
+  'CA': {salary:70304, hourly:58.85, comp:122573.13, mgr:70304},
+  'WA': {salary:80168.40, hourly:59.96, comp:80168.40, mgr:80168.40},
+  'NY-NYC': {...FED, mgr:66300, mgrWeek:1275.00, fedKeys:['salary', 'hourly', 'comp']},
+  'NY-REST': {...FED, mgr:62353.20, mgrWeek:1199.10, fedKeys:['salary', 'hourly', 'comp']}
+};
+const DUTIES = {
+  software:'Works as a software engineer, programmer or systems analyst',
+  manage:'Manages the business or a department, directs 2 or more full-time people, and can hire and fire or has a real say in it',
+  admin:'Office work on running the business, where they make independent decisions on important matters',
+  study:'Work that needs advanced study, like law, medicine or accounting',
+  none:'None of these',
+  unsure:"I'm not sure"
+};
+/* Info-tip texts: spec 17 §5, word for word */
+const TIP = {
+  type:"W-2: an employee on your payroll. You withhold their taxes. 1099: an independent contractor. You generally don't withhold taxes for them.",
+  state:"Where they'll work from. Pay and overtime rules can depend on the state. It isn't shown in the letter.",
+  repay:'They pay the bonus back only if they resign or are let go for cause within this time.',
+  repayC:'They pay the bonus back only if they end this engagement within this time.',
+  hire:'Not in the letter. Bolto uses these to set them up in payroll after they sign.',
+  pg:'Everyone in a group is paid together, with the same settings. Bolto picks it from the pay type.',
+  flsa:'FLSA is the US law on overtime. Most employees get 1.5× their pay rate for hours past 40 in a week. Some jobs are exempt, depending on their pay and duties.',
+  i9:'A US form you and every new employee fill in to confirm they can work in the US. Bolto collects it after they sign.',
+  invite:'After they sign, Bolto emails them to set up their account and start onboarding.'
+};
+
+/* ===================== state ===================== */
+function plusDays(d, n){ const x = new Date(d); x.setDate(x.getDate() + n); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`; }
+const WF = {saveFail:false, sendFail:false};
+function blankF(){
+  return {empType:'', first:'', last:'', email:'', title:'', work:'', startDate:'', endDate:'', reportsTo:'', location:'', state:'', workplace:'', department:'',
+    payType:'', amount:'', bonusOpen:false, bonus:'', bonusRepay:false, bonusMonths:'', equityOpen:false, equity:'',
+    payrollGroup:'', duties:'', invite:true, expiry:plusDays(TODAY, 7), sender:'sam', note:''};
+}
+let S;
+function fresh(){
+  S = {screen:'offer', f:blankF(), style:'Standard', pgOverride:false, otBasis:'', otMode:'', blurErr:new Set(), draft:false, save:'', savedAt:'', newOffer:true,
+       errItems:null, lastN:null, otSaid:null, sent:false, sendErr:false, hireHTML:'', saveT:null, lastField:null, view:'edit', fresh:new Map()};
+}
+fresh();
+
+/* ===================== helpers (lo-fi) ===================== */
+const num = v => { const s = String(v ?? '').replace(/[$,\s]/g, ''); if(!/^\d+(\.\d+)?$/.test(s)) return null; return parseFloat(s); };
+const money = n => '$' + Number(n).toLocaleString('en-US', {minimumFractionDigits: Number.isInteger(n) ? 0 : 2, maximumFractionDigits: 2});
+const money0 = n => '$' + Math.round(Number(n)).toLocaleString('en-US');
+const iso2d = iso => { const [y,m,d] = iso.split('-').map(Number); return new Date(y, m-1, d); };
+const fdate = iso => iso ? iso2d(iso).toLocaleDateString('en-US', {month:'long', day:'numeric', year:'numeric'}) : '';
+const sdate = iso => iso ? iso2d(iso).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}) : '';
+const md = d => d.toLocaleDateString('en-US', {month:'short', day:'numeric'});
+const isEmp = () => S.f.empType === 'ft' || S.f.empType === 'pt';
+const isCon = () => S.f.empType === 'c';
+const who = () => S.f.first.trim();
+const poss = () => who() ? who() + "'s " : 'their ';
+const fullName = () => (S.f.first + ' ' + S.f.last).trim();
+const validAmount = () => (num(S.f.amount) || 0) > 0;
+const validBonus = () => (num(S.f.bonus) || 0) > 0;
+const validMonths = () => /^\d{1,3}$/.test(S.f.bonusMonths.trim()) && +S.f.bonusMonths > 0;
+const nonPos = v => { const s = String(v ?? '').replace(/[$,\s]/g, ''); return /^-?\d+(\.\d+)?$/.test(s) && parseFloat(s) <= 0; };
+const validEmail = () => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(S.f.email.trim());
+const sender = () => SENDERS.find(s => s.id === S.f.sender) || SENDERS[0];
+const office = () => OFFICES.find(o => o.id === S.f.workplace);
+const stateName = code => (STATES.find(s => s[0] === code) || [,''])[1];
+const place = code => PLACE[code] || stateName(code);
+const initials = n => n.split(/\s+/).filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase();
+const EMP = {ft:['Full-time', 'W-2'], pt:['Part-time', 'W-2'], c:['Contractor', '1099']};
+const empLabel = () => EMP[S.f.empType] ? EMP[S.f.empType].join(' / ') : '';
+
+/* ===================== overtime (FLSA), lo-fi unchanged ===================== */
+function workState(){ return S.f.location === 'Remote' ? S.f.state : ((office() || {}).state || ''); }
+function otNeeds(){
+  const n = [];
+  if(!S.f.location) n.push('location');
+  else if(S.f.location === 'Remote'){ if(!S.f.state) n.push('state'); }
+  else if(!S.f.workplace) n.push('workplace');
+  if(!S.f.payType) n.push('payType');
+  if(!validAmount()) n.push('amount');
+  return n;
+}
+function ot(){
+  if(!isEmp()) return {mode:'na'};
+  const need = otNeeds();
+  if(need.length) return {mode:'wait', first:need[0]};
+  const st = workState(), fl = FLOORS[st] || FED, amt = num(S.f.amount), wh = place(st);
+  const rule = key => !FLOORS[st] ? ` under the federal rule (${wh}'s own rules aren't checked)`
+    : (fl.fedKeys || []).includes(key) ? ` under the federal rule (for ${wh}, only the floor for managing and office work is checked)` : ` in ${wh}`;
+  if(S.f.payType === 'Hourly'){
+    if(amt < fl.hourly) return {mode:'auto', why:`${money(amt)} an hour is below ${money(fl.hourly)}, the lowest hourly pay for the one hourly exemption Bolto checks, computer jobs${rule('hourly')}.`};
+    return {mode:'hourly', hint:`Bolto checks one hourly exemption, for computer jobs, at ${money(fl.hourly)} an hour or more${rule('hourly')}.`};
+  }
+  if(amt < fl.salary) return {mode:'auto', why:`${money(amt)} a year is below ${money(fl.salary)}, the lowest salary for the overtime exemptions Bolto checks${rule('salary')}.`};
+  const opts = [], cut = [];
+  if(amt >= fl.comp) opts.push('software'); else cut.push(`Software work skips overtime${rule('comp')} only at ${money(fl.comp)} a year or more.`);
+  if(amt >= fl.mgr) opts.push('manage', 'admin');
+  else cut.push(`Managing and office work skip overtime${rule('mgr')} only at ${fl.mgrWeek ? '$' + fl.mgrWeek.toLocaleString('en-US', {minimumFractionDigits:2}) + ' a week (' + money(fl.mgr) + ' a year)' : money(fl.mgr) + ' a year'} or more.`);
+  opts.push('study', 'none', 'unsure');
+  return {mode:'salary', opts, hint:cut.join(' ')};
+}
+function otFinal(){
+  const o = ot();
+  if(o.mode === 'auto') return false;
+  if(o.mode !== 'hourly' && o.mode !== 'salary') return null;
+  const d = S.f.duties;
+  if(!d || d === 'unsure') return null;
+  if(o.mode === 'hourly') return d === 'software' ? true : (d === 'none' ? false : null);
+  if(!o.opts.includes(d)) return null;
+  return d !== 'none';
+}
+const otWords = v => v ? 'No overtime pay (exempt)' : 'Gets overtime pay (non-exempt)';
+const basisKey = () => [S.f.payType, num(S.f.amount), S.f.location, S.f.state, S.f.workplace].join('|');
+const derivedGroup = () => S.f.payType === 'Hourly' ? 'US Hourly' : (S.f.payType === 'Salary' ? 'US Salaried' : '');
+
+/* ===================== what's missing: the one list behind the rail, the count and the error summary ===================== */
+function missing(){
+  const out = [], f = S.f, add = (k, msg) => out.push({k, msg});
+  if(!f.empType) add('empType', 'Select the worker type');
+  if(!f.first.trim()) add('first', 'Enter their first name');
+  if(!f.last.trim()) add('last', 'Enter their last name');
+  if(!f.email.trim()) add('email', 'Enter their email address');
+  else if(!validEmail()) add('email', 'Enter an email address in the correct format, like name@example.com');
+  if(!f.title.trim()) add('title', 'Enter the job title');
+  if(!f.startDate) add('startDate', 'Enter the start date');
+  if(isCon() && !f.endDate) add('endDate', 'Enter the date the contract ends');
+  else if(isCon() && f.startDate && f.endDate <= f.startDate) add('endDate', 'The contract must end after it starts');
+  if(!f.reportsTo) add('reportsTo', isCon() ? 'Select their point of contact' : 'Select who they report to');
+  if(!f.location) add('location', 'Select where they work');
+  else if(f.location === 'Remote'){ if(isEmp() && !f.state) add('state', 'Select the state they will work from'); }
+  else if(!f.workplace) add('workplace', 'Select the workplace');
+  if(!f.payType) add('payType', 'Select salary or hourly');
+  if(!f.amount.trim()) add('amount', 'Enter the pay amount');
+  else if(nonPos(f.amount)) add('amount', 'Enter a pay amount above 0');
+  else if(!validAmount()) add('amount', 'Enter the pay amount as a number, like 150,000');
+  if(f.bonusOpen){
+    if(!f.bonus.trim()) add('bonus', 'Enter the signing bonus amount');
+    else if(nonPos(f.bonus)) add('bonus', 'Enter a bonus amount above 0');
+    else if(!validBonus()) add('bonus', 'Enter the signing bonus as a number, like 10,000');
+    if(f.bonusRepay && nonPos(f.bonusMonths)) add('bonusMonths', 'Enter a number of months above 0');
+    else if(f.bonusRepay && !validMonths()) add('bonusMonths', 'Enter the number of months for repaying the bonus');
+  }
+  if(f.equityOpen && !f.equity.trim()) add('equity', 'Enter the equity as it should read in the letter');
+  if(isEmp() && ot().mode !== 'wait' && otFinal() === null) add('duties', `Answer the overtime question${who() ? ' for ' + who() : ''}${f.duties === 'unsure' ? ', or check with whoever runs payroll' : ''}`);
+  if(!f.expiry) add('expiry', 'Enter when the offer expires');
+  else if(iso2d(f.expiry) < TODAY) add('expiry', "The offer can't expire before today");
+  return out;
+}
+const msgFor = k => (missing().find(m => m.k === k) || {}).msg || '';
+
+/* ===================== sections: the six accordions and the checklist behind them ===================== */
+const SECTIONS = [
+  {id:'type', title:'Worker type'}, {id:'cand', title:'Candidate'}, {id:'role', title:'Role'},
+  {id:'pay', title:'Pay'}, {id:'hire', title:'Hire setup'}, {id:'terms', title:'Offer terms'}];
+const KEYS = {type:['empType'], cand:['first', 'last', 'email'], role:['title', 'startDate', 'endDate', 'reportsTo', 'location', 'state', 'workplace'],
+  pay:['payType', 'amount', 'bonus', 'bonusMonths', 'equity'], hire:['duties'], terms:['expiry']};
+/* Review's Change links for fields outside KEYS land in Hire setup, never the Worker type fallback */
+const SEC_EXTRA = {payrollGroup:'hire', invite:'hire'};
+const secOf = k => SEC_EXTRA[k] || (Object.entries(KEYS).find(([, ks]) => ks.includes(k)) || ['type'])[0];
+function applies(k){
+  const f = S.f;
+  if(k === 'endDate') return isCon();
+  if(k === 'state') return f.location === 'Remote' && isEmp();
+  if(k === 'workplace') return f.location === 'Hybrid' || f.location === 'On-site';
+  if(k === 'bonus') return f.bonusOpen;
+  if(k === 'bonusMonths') return f.bonusOpen && f.bonusRepay;
+  if(k === 'equity') return f.equityOpen;
+  if(k === 'duties') return isEmp() && ['hourly', 'salary'].includes(ot().mode);
+  return true;
+}
+/* The hire-setup wait line names only what overtime still needs (from otNeeds) */
+const NEEDWORD = {location:'where they work', state:'the work state', workplace:'the workplace', payType:'salary or hourly', amount:'the pay amount'};
+function waitLine(){
+  const w = otNeeds().map(k => NEEDWORD[k]);
+  return `Fill in ${w.length > 1 ? w.slice(0, -1).join(', ') + ' and ' + w[w.length - 1] : w[0]} first.`;
+}
+function secStatus(id, miss = missing()){
+  const gone = new Set(miss.map(m => m.k)), errs = new Set((S.errItems || []).map(i => i.k));
+  if(id === 'hire'){
+    if(!S.f.empType) return {state:'wait', frac:0, left:0, label:'The rest depends on the worker type.'};
+    if(isCon()) return {state:'done', frac:1, left:0};
+    if(ot().mode === 'wait') return {state:'wait', frac:0, left:0, label:waitLine()};
+  }
+  const ks = KEYS[id].filter(applies), left = ks.filter(k => gone.has(k)).length;
+  const err = ks.some(k => gone.has(k) && errs.has(k));
+  return {state: err ? 'error' : left === 0 ? 'done' : left < ks.length ? 'progress' : 'todo', frac: ks.length ? (ks.length - left) / ks.length : 1, left};
+}
+function summary(id){
+  const f = S.f;
+  if(id === 'type') return empLabel();
+  if(id === 'cand') return [fullName(), f.email.trim()].filter(Boolean).join(' · ');
+  if(id === 'role') return [f.title.trim(), sdate(f.startDate), f.location ? (f.location === 'Remote' ? (isEmp() && f.state ? 'Remote, ' + stateName(f.state) : 'Remote') : `${f.location}${office() ? ', ' + office().name : ''}`) : ''].filter(Boolean).join(' · ');
+  if(id === 'pay') return [validAmount() && f.payType ? `${money(num(f.amount))} ${f.payType === 'Hourly' ? 'an hour' : 'a year'}` : '', f.bonusOpen && validBonus() ? money(num(f.bonus)) + ' bonus' : '', f.equityOpen && f.equity.trim() ? 'Equity' : ''].filter(Boolean).join(' · ');
+  if(id === 'hire'){ if(isCon()) return f.invite ? 'Invited to Bolto after signing' : 'Not invited to Bolto automatically';
+    const v = otFinal(); return [isEmp() ? f.payrollGroup : '', v === null ? '' : otWords(v)].filter(Boolean).join(' · '); }
+  if(id === 'terms') return [f.expiry ? 'Expires ' + sdate(f.expiry) : '', sender().name].filter(Boolean).join(' · ');
+  return '';
+}
+
+/* ===================== field builders (hi-fi markup on the lo-fi contract: ids f-*, e-*, data-f) ===================== */
+const tip = (term, text) => Toggletip.html(term, text);
+function errP(k){ return `<div class="err" hidden><div class="hx-reveal-in"><p id="e-${k}"></p></div></div>`; }
+function dbAttr(ids){ const v = ids.filter(Boolean).join(' '); return v ? ` aria-describedby="${v}" data-db="${v}"` : ' data-db=""'; }
+function lblRow(k, label, o = {}){ return `<div class="lbl"><label for="f-${k}" id="l-${k}">${label}${o.optional ? ' <span class="opt">(optional)</span>' : ''}</label>${o.tip || ''}</div>`; }
+function textField(k, label, o = {}){
+  const input = `<input class="${o.wrap ? '' : 'input'}${o.short ? ' short' : ''}" id="f-${k}" name="${k}" type="${o.type || 'text'}" value="${esc(S.f[k])}" autocomplete="${o.ac || 'off'}"${o.im ? ` inputmode="${o.im}"` : ''}${o.type === 'email' ? ' spellcheck="false"' : ''}${dbAttr([o.hint && 'h-' + k, ...(o.db || [])])}>`;
+  return `<div class="field" data-f="${k}">${lblRow(k, label, o)}${errP(k)}${o.wrap ? o.wrap(input) : input}${o.hint ? `<p class="hint num" id="h-${k}">${o.hint}</p>` : ''}${o.after || ''}</div>`;
+}
+function selectField(k, label, opts, o = {}){
+  const ph = o.noChoose ? '' : `<option value=""${S.f[k] ? '' : ' selected'}>Choose</option>`;
+  const av = o.avatar ? `<span class="avatar${S.f[k] ? '' : ' empty'}" id="av-${k}" aria-hidden="true">${esc(initials(o.avatarName ? o.avatarName() : S.f[k]))}</span>` : '';
+  return `<div class="field" data-f="${k}">${lblRow(k, label, o)}${errP(k)}
+    <div class="sel-wrap${o.avatar ? ' has-avatar' : ''}">${av}<select class="select" id="f-${k}" name="${k}"${dbAttr([o.hint && 'h-' + k])}>${ph}${opts.map(([v, l]) => `<option value="${esc(v)}"${S.f[k] === v ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select>${I('chevron-down')}</div>
+    ${o.hint ? `<p class="hint" id="h-${k}">${o.hint}</p>` : ''}</div>`;
+}
+function areaField(k, label, o = {}){
+  return `<div class="field" data-f="${k}">${lblRow(k, label, o)}${errP(k)}<textarea class="textarea" id="f-${k}" name="${k}" rows="4"${dbAttr([o.hint && 'h-' + k])}>${esc(S.f[k])}</textarea>${o.hint ? `<p class="hint" id="h-${k}">${o.hint}</p>` : ''}</div>`;
+}
+const TICK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+function checkField(k, label, o = {}){
+  return `<div class="field" data-f="${k}"><div class="chk-row"><label class="chk"><input type="checkbox" id="f-${k}" name="${k}"${S.f[k] ? ' checked' : ''}><span class="box" aria-hidden="true">${TICK}</span><span id="l-${k}">${label}</span></label>${o.tip || ''}</div></div>`;
+}
+function segField(k, label, opts, o = {}){
+  return `<div class="field" data-f="${k}"><div class="lbl" id="l-${k}">${label}</div>${errP(k)}<div id="f-${k}" data-db="" class="seg-host">${Segmented.html(k, opts, S.f[k], {labelledby:'l-' + k, idp:'f-' + k})}</div></div>`;
+}
+const affix = (pre, suf, o = {}) => i => `<div class="affix${o.short ? ' short' : ''}">${pre ? `<span class="pre" aria-hidden="true">${pre}</span>` : ''}${i}${suf !== undefined ? `<span class="suf" id="u-${o.k}">${suf}</span>` : ''}</div>`;
+function accHTML(id, title, body, o = {}){
+  return `<div class="acc" data-sec="${id}" id="sec-${id}">
+    <div class="acc-head"><h2><button type="button" class="acc-btn" aria-expanded="true" aria-controls="secp-${id}">${Ring.html(id)}
+      <span class="acc-title"><span class="acc-name" id="secn-${id}">${title}</span><span class="acc-sum"></span></span>
+      <span class="acc-left" data-left-for="${id}"></span></button></h2>
+      <span class="acc-aside">${o.aside || ''}</span><span class="acc-chev" aria-hidden="true">${I('chevron-down')}</span></div>
+    <div class="acc-panel" id="secp-${id}"><div class="acc-clip"><div class="acc-inner">${body}</div></div></div></div>`;
+}
+
+/* ===================== screen: offer ===================== */
+function ledeText(){ return WF.saveFail ? 'Fill in what you know.' : 'Saves as you go. Come back anytime.'; }
+function workHint(){ return isCon() ? 'One service per line.' : 'One duty per line.'; }
+function dayHint(iso){ return iso ? iso2d(iso).toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric'}) : ''; }
+function expiryHint(){
+  if(!S.f.expiry) return '';
+  const d = iso2d(S.f.expiry), n = Math.round((d - TODAY) / 864e5);
+  return `${dayHint(S.f.expiry)} · ${n === 0 ? 'today' : n === 1 ? 'tomorrow' : n > 1 ? n + ' days from today' : 'in the past'}`;
+}
+function offerHTML(){
+  const nm = fullName();
+  const typeCards = `<div class="field" data-f="empType">${errP('empType')}<div class="rcards" role="radiogroup" id="f-empType" aria-labelledby="secn-type" data-db="">
+    ${[['ft', 'briefcase'], ['pt', 'clock-3'], ['c', 'file-pen-line']].map(([v, ic], i) => `<label class="rcard"><input type="radio" name="empType" value="${v}" id="f-empType-${i}"${S.f.empType === v ? ' checked' : ''}>
+      <span class="rcard-box"><span class="rcard-top"><span class="rcard-icon">${I(ic)}</span><span class="dot" aria-hidden="true"></span></span><span class="rcard-icon m">${I(ic)}</span>
+      <span class="rcard-t">${EMP[v][0]}<span>${EMP[v][1]}</span></span></span></label>`).join('')}</div></div>`;
+  const cand = `<div class="row2">${textField('first', 'First name', {ac:'off'})}${textField('last', 'Last name')}</div>${textField('email', 'Email', {type:'email'})}`;
+  const role = textField('title', 'Job title')
+    + areaField('work', "What they'll do", {optional:true, hint:workHint()})
+    + textField('startDate', 'Start date', {type:'date', hint:dayHint(S.f.startDate)})
+    + `<div data-when="con">${textField('endDate', 'Contract ends', {type:'date', hint:dayHint(S.f.endDate)})}</div>`
+    + selectField('reportsTo', isCon() ? 'Point of contact' : 'Reports to', PEOPLE.map(p => [p, p]), {avatar:true})
+    + segField('location', 'Where they work', [['Remote', 'Remote'], ['Hybrid', 'Hybrid'], ['On-site', 'On-site']])
+    + `<div data-when="remote">${selectField('state', 'Work state', STATES, {tip:tip('Work state', TIP.state)})}</div>`
+    + `<div data-when="office">${selectField('workplace', 'Workplace', OFFICES.map(o => [o.id, o.name]))}</div>`
+    + textField('department', 'Department', {optional:true});
+  const pay = segField('payType', 'Salary or hourly', [['Salary', 'Salary'], ['Hourly', 'Hourly']])
+    + textField('amount', 'Amount <span class="sr">in US dollars</span>', {im:'decimal', db:['u-amount', 'warn-amount'], wrap:affix('$', '', {k:'amount'}), after:`<div class="warn callout callout-warning" id="warn-amount" hidden>${I('triangle-alert')}<p></p></div>`})
+    + `<div id="addWrap"><div class="hx-reveal-in"><div class="addrow"><button type="button" class="btn btn-add" id="bonusAdd" aria-expanded="false" aria-controls="bonusPanel">${I('plus')}Add signing bonus</button>
+       <button type="button" class="btn btn-add" id="equityAdd" aria-expanded="false" aria-controls="equityPanel">${I('plus')}Add equity</button></div></div></div>
+      <div id="bonusPanel" hidden><div class="hx-reveal-in"><fieldset class="sub-card" aria-labelledby="bonusH"><div class="sub-head"><h3 id="bonusH">Signing bonus</h3><button type="button" class="linkbtn quiet" id="bonusRemove">${I('x', 'ic-sm')}Remove<span class="sr"> signing bonus</span></button></div>
+        ${textField('bonus', 'Amount <span class="sr">in US dollars</span>', {im:'decimal', wrap:affix('$', undefined, {short:true})})}
+        ${checkField('bonusRepay', 'Repaid if they leave early', {tip:tip('Repaid if they leave early', TIP.repay)})}
+        <div data-when="repay">${textField('bonusMonths', 'Within how many months', {im:'numeric', wrap:affix('', 'months', {short:true, k:'bonusMonths'}), db:['u-bonusMonths']})}</div></fieldset></div></div>
+      <div id="equityPanel" hidden><div class="hx-reveal-in"><fieldset class="sub-card" aria-labelledby="equityH"><div class="sub-head"><h3 id="equityH">Equity</h3><button type="button" class="linkbtn quiet" id="equityRemove">${I('x', 'ic-sm')}Remove<span class="sr"> equity</span></button></div>
+        ${textField('equity', 'As it should read in the letter')}</fieldset></div></div>`;
+  const terms = textField('expiry', 'Offer expires', {type:'date', hint:expiryHint()})
+    + selectField('sender', 'From', SENDERS.map(s => [s.id, `${s.name}, ${s.title} (you)`]), {noChoose:true, avatar:true, avatarName:() => sender().name, hint:esc(sender().email)});
+  return `<div class="hx-body" id="body">
+    <div class="hx-chips" id="chips" role="navigation" aria-label="Offer checklist"></div>
+    <nav class="hx-rail" id="rail" aria-label="Offer checklist"></nav>
+    <div class="hx-form" id="formPane" data-keeper-host>
+      <h1 class="hx-title" id="pageH1" tabindex="-1">${nm ? 'Offer for ' + esc(nm) : 'New offer'}</h1>
+      <p class="hx-lede" id="lede">${ledeText()}</p>
+      <div class="hx-sections"><div id="errsumSlot"></div>
+        ${accHTML('type', 'Worker type', typeCards, {aside:tip('Worker type', TIP.type)})}
+        ${accHTML('cand', 'Candidate', cand)}
+        ${accHTML('role', 'Role', role)}
+        ${accHTML('pay', 'Pay', pay)}
+        ${accHTML('hire', 'Hire setup', '<div id="hireBody"></div>', {aside:tip('Hire setup', TIP.hire)})}
+        ${accHTML('terms', 'Offer terms', terms)}
+      </div>
+    </div>
+    <aside class="hx-letter" id="letterPane" aria-labelledby="letterTitle">
+      <div class="lt-head"><h2 id="letterTitle" tabindex="-1"></h2>${Segmented.html('style', [['Standard', 'Standard'], ['Concise', 'Concise']], S.style, {sm:true, label:'Letter style'})}</div>
+      <div class="lt-scroll" id="ltScroll" tabindex="0" role="region" aria-label="Letter text"><div class="paper" id="letter"></div></div>
+    </aside>
+  </div>`;
+}
+
+function hireHTML(){
+  const w = who();
+  const invite = checkField('invite', `Invite ${esc(w || 'them')} to Bolto after they sign`, {tip:tip('Invite to Bolto', TIP.invite)});
+  if(!S.f.empType) return `<p class="plain">The rest depends on the worker type. <a href="#f-empType" data-go="empType">Choose it at the top</a>.</p>` + invite;
+  if(isCon()) return `<p class="plain">Overtime, payroll group and I-9 only apply to employees.</p>` + invite;
+  const o = ot();
+  let block = '';
+  if(o.mode === 'wait'){
+    block = `${errP('duties')}<p class="plain">${esc(waitLine())} <a href="#" id="ot-wait-link" data-go="${o.first}">${esc(msgFor(o.first))}</a>.</p>`;
+  } else if(o.mode === 'auto'){
+    block = floorBar(o) + `<p class="result neutral">${I('clock-3')}<span>Gets overtime pay (non-exempt).</span></p><p class="sr">${o.why}</p>`;
+  } else {
+    const opts = o.mode === 'hourly' ? [['software', 'Yes'], ['none', 'No'], ['unsure', "I'm not sure"]] : o.opts.map(v => [v, DUTIES[v]]);
+    const q = o.mode === 'hourly' ? `Does ${esc(who() || 'this person')} work as a software engineer, programmer or systems analyst?` : `What is ${esc(poss())}main work?`;
+    block = floorBar(o) + `<fieldset id="f-duties" class="field"${dbAttr([o.hint && 'h-duties'])}><legend class="lbl">${q}</legend>${o.hint ? `<p class="hint" id="h-duties" style="margin:0 0 var(--s3)">${o.hint}</p>` : ''}${errP('duties')}
+      <div class="rlist">${opts.map(([v, l], i) => `<label class="ropt"><input type="radio" id="f-duties-${i}" name="duties" value="${v}"${S.f.duties === v ? ' checked' : ''}><span class="dot" aria-hidden="true"></span><span class="t">${l}</span></label>`).join('')}</div></fieldset>
+      <p class="result" id="ot-result" hidden></p>`;
+  }
+  const pgChanged = S.f.payrollGroup && derivedGroup() && S.f.payrollGroup !== derivedGroup();
+  return selectField('payrollGroup', 'Payroll group', [['US Salaried', 'US Salaried'], ['US Hourly', 'US Hourly']], {noChoose: !!S.f.payrollGroup, tip:tip('Payroll group', TIP.pg),
+      hint: pgChanged ? `Changed by you. Bolto would use ${derivedGroup()} for ${S.f.payType === 'Hourly' ? 'hourly' : 'salaried'} pay.` : ''})
+    + `<div class="field" data-f="duties"><div class="subhead">Overtime pay (FLSA) ${tip('Overtime pay (FLSA)', TIP.flsa)}</div>${block}</div>`
+    + `<div class="field"><div class="factrow"><span class="k">I-9 ${tip('I-9', TIP.i9)}</span><span class="v">Bolto collects ${esc(w ? w + "'s" : 'their')} I-9 after they sign.</span></div></div>`
+    + invite;
+}
+/* Overtime floor bar (17 §5): the pay against the floor that decides the outcome. Numbers come from the lo-fi's table. */
+/* Keep the floor labels inside the bar's width on any screen: a centred or end-aligned label that would cross an edge is nudged back. */
+function clampFloorLabs(t){
+  const tr = t.getBoundingClientRect(); if(!tr.width) return;
+  t.querySelectorAll('.floor-lab').forEach(l => {
+    l.style.removeProperty('--nudge'); const r = l.getBoundingClientRect();
+    const d = r.width > tr.width || r.left < tr.left ? tr.left - r.left : r.right > tr.right ? tr.right - r.right : 0;
+    if(Math.abs(d) > 0.5) l.style.setProperty('--nudge', d.toFixed(1) + 'px');
+  });
+}
+const floorRO = new ResizeObserver(es => es.forEach(e => clampFloorLabs(e.target)));
+function floorBar(o){
+  const st = workState(), fl = FLOORS[st] || FED, amt = num(S.f.amount), hourly = S.f.payType === 'Hourly';
+  const code = st.startsWith('NY') ? 'NY' : st;
+  const abbr = key => !FLOORS[st] || (fl.fedKeys || []).includes(key) ? 'Federal' : code;
+  let key, F;
+  if(hourly){ key = 'hourly'; F = fl.hourly; }
+  else if(o.mode === 'auto'){ key = 'salary'; F = fl.salary; }
+  else { const c = [['salary', fl.salary], ['comp', fl.comp], ['mgr', fl.mgr]]; const above = c.filter(x => x[1] > amt).sort((a, b) => a[1] - b[1]);
+    [key, F] = above.length ? above[0] : c.sort((a, b) => b[1] - a[1])[0]; }
+  const max = Math.max(amt, F) * 1.25, fx = amt / max, tx = F / max, u = hourly ? ' / hour' : '';
+  const al = p => p > 0.82 ? 'end' : p < 0.18 ? '' : 'mid';
+  const mf = hourly ? money : money0, ab = abbr(key), floorT = `Exempt minimum (${ab === 'Federal' ? 'federal' : ab}) ${mf(F)}${u}`;
+  const label = `${mf(amt)}${u}. ${floorT}.`;
+  return `<div class="floor" role="img" aria-label="${esc(label)}"><div class="floor-track"><span class="floor-fill" style="--f:${fx.toFixed(3)}"></span>
+    <span class="floor-tick" style="left:${(tx * 100).toFixed(1)}%"></span>
+    <span class="floor-lab top ${al(tx)}" style="left:${(tx * 100).toFixed(1)}%">${floorT}</span>
+    <span class="floor-lab bot ${al(fx)}" style="left:${(fx * 100).toFixed(1)}%">${mf(amt)}${u}</span></div></div>`;
+}
+function resultText(){
+  const d = S.f.duties;
+  if(!d) return {t:'', soft:false};
+  if(d === 'unsure') return {t:(WF.saveFail ? '' : 'Your draft is saved. ') + 'Check with whoever runs payroll.', soft:true};
+  const v = otFinal();
+  return v === null ? {t:'', soft:false} : {t:otWords(v) + '.', soft:false};
+}
+
+/* ===================== the letter (lo-fi text, Standard and Concise) ===================== */
+const GAPLABEL = {first:'First name', last:'Last name', title:'Job title', empType:'Worker type', startDate:'Start date', endDate:'Contract end date',
+  reportsTo:'Reports to', location:'Where they work', workplace:'Workplace', payType:'Salary or hourly', amount:'Pay amount', bonus:'Signing bonus amount',
+  bonusMonths:'Bonus repayment months', equity:'Equity', expiry:'Offer expiry date'};
+function filled(k){
+  if(k === 'amount') return validAmount();
+  if(k === 'bonus') return validBonus();
+  if(k === 'bonusMonths') return validMonths();
+  return String(S.f[k] ?? '').trim() !== '';
+}
+function letterHTML(final){ return letterBody(final).replace(/Acme Co\.\./g, 'Acme Co.'); }
+function letterBody(final){
+  const f = S.f, st = S.style, emp = isEmp(), con = isCon(), s = sender(), used = new Set();
+  const g = (k, fmt) => {
+    const nm = k === 'reportsTo' && con ? 'Point of contact' : GAPLABEL[k], ph = nm.toLowerCase();
+    if(filled(k)) return `<span class="v" data-v="${k}">${esc(fmt ? fmt(f[k]) : f[k])}</span>`;
+    if(final) return '';
+    if(used.has(k)) return `<span class="gap passive" data-go="${k}">${ph}</span>`;
+    used.add(k);
+    return `<a href="#f-${k}" class="gap" data-go="${k}" aria-label="${nm}, missing">${ph}</a>`;
+  };
+  const date = TODAY.toLocaleDateString('en-US', {month:'long', day:'numeric', year:'numeric'});
+  const first = () => g('first'), last = () => g('last');
+  const title = () => g('title'), start = () => g('startDate', fdate), end = () => g('endDate', fdate);
+  const rep = () => g('reportsTo'), exp = () => g('expiry', fdate);
+  const amount = () => g('amount', v => money(num(v)));
+  const unit = () => f.payType ? `<span class="v" data-v="payType">${f.payType === 'Hourly' ? 'an hour' : 'a year'}</span>` : g('payType');
+  const pay = () => `${amount()} ${unit()}`;
+  const kind = () => emp ? `<span class="v" data-v="empType">${f.empType === 'ft' ? 'full-time' : 'part-time'}</span>` : (con ? '<span class="v" data-v="empType">contractor</span>' : g('empType'));
+  const place = () => !f.location ? g('location')
+    : f.location === 'Remote' ? '<span class="v" data-v="location">Remote</span>'
+    : `<span class="v" data-v="location">${f.location}</span>, ${g('workplace', () => office().name)}`;
+  const where = () => !f.location ? g('location')
+    : f.location === 'Remote' ? '<span class="v" data-v="location">remotely</span>'
+    : con ? `<span class="v" data-v="location">${f.location === 'Hybrid' ? 'partly from' : 'at'}</span> our ${g('workplace', () => office().name)}`
+    : `<span class="v" data-v="location">${f.location === 'Hybrid' ? 'on a hybrid schedule from' : 'on-site at'}</span> our ${g('workplace', () => office().name)}`;
+  const months = () => g('bonusMonths', v => `${+v} month${+v === 1 ? '' : 's'}`);
+  /* the key-terms row uses the body's own clause, never a broader one (C: "leave" was broader than the contractor clause) */
+  const bonusShort = () => `${g('bonus', v => money(num(v)))}${f.bonusRepay ? (con ? `, repaid if you end this engagement within ${months()} of its start` : `, repaid if you resign, or are let go for cause, within ${months()} of your start date`) : ''}`;
+  const bonusLong = () => f.bonusOpen ? ` You'll receive a one-time signing bonus of ${g('bonus', v => money(num(v)))}.${f.bonusRepay ? (con ? ` If you end this engagement within ${months()} of its start, you agree to repay it in full.` : ` If you resign, or are let go for cause, within ${months()} of your start date, you agree to repay it in full.`) : ''}` : '';
+  const equityLong = () => f.equityOpen ? ` Subject to approval by ${COMPANY}'s board, you'll be granted ${g('equity')}, under the terms of ${COMPANY}'s equity plan.` : '';
+  const dept = () => f.department.trim() ? ` You'll be part of the <span class="v" data-v="department">${esc(f.department.trim())}</span> team.` : '';
+  const lines = f.work.split('\n').map(x => x.replace(/^[\s•*-]+/, '').trim()).filter(Boolean);
+  const duties = (lead, none) => lines.length
+    ? `<p>${lead}</p><ul class="v" data-v="work">${lines.map(l => `<li>${esc(l)}</li>`).join('')}</ul>${con ? '' : "<p>This isn't a complete list, and it may change as the business needs.</p>"}`
+    : `<p>${none}</p>`;
+  const kt = rows => `<table class="kt"><tbody>${rows.filter(Boolean).map(([k, v]) => `<tr><th scope="row">${k}</th><td>${v}</td></tr>`).join('')}</tbody></table>`;
+  const head = `<div class="lh"><strong>${COMPANY}</strong><span class="num">${date}</span></div><p>${first()} ${last()}</p>`;
+  const sig = `<div class="sig"><div><p class="line">Signature and date</p><p><span class="v" data-v="sender">${esc(s.name)}<br>${esc(s.title)}, ${COMPANY}</span></p></div>
+    <div><p class="line">Signature and date</p><p>Accepted by ${first()} ${last()}</p></div></div>`;
+  const sec = t => `<h3>${t}</h3>`;
+  const ask = `<p>If you have any questions, email <span class="v" data-v="sender">${esc(s.name)} at ${esc(s.email)}</span>.</p>`;
+  const whole = `<p>This letter and the agreement that comes with it are the full agreement about this offer, and they replace anything said or written before.</p>`;
+  const other = `<p>While you work for ${COMPANY}, you won't take on outside work that seriously gets in the way of your job or creates a real conflict of interest. This doesn't limit anything the law protects. You confirm that no agreement with a past employer stops you from doing this job, and you won't bring any past employer's confidential information to ${COMPANY}.</p>`;
+
+  if(con){
+    const services = () => duties("You'll provide these services:", `You'll provide the services we agree on with your point of contact, in the role above.`);
+    const onsite = f.location === 'On-site', ofc = () => g('workplace', () => office().name);
+    const conLoc = () => f.location === 'Hybrid' ? ` <span class="v" data-v="location">You can work from</span> our ${ofc()} when it suits the work.`
+      : onsite ? ` <span class="v" data-v="location">You'll have a workspace at</span> our ${ofc()}.` : '';
+    const conWhere = () => f.location === 'Hybrid' ? `<span class="v" data-v="location">with use of</span> our ${ofc()} when it suits the work`
+      : onsite ? `<span class="v" data-v="location">with a workspace at</span> our ${ofc()}` : `working ${where()}`;
+    const decide = onsite ? 'how and when' : 'how, when and where';
+    const expenses = `<p>${COMPANY} reimburses expenses only when agreed in writing in advance.</p>`;
+    const payC = () => `<p>You'll be paid ${pay()}, against invoices you send us. As an independent contractor, you're responsible for your own taxes, and you aren't eligible for ${COMPANY}'s employee benefits.${bonusLong()}${equityLong()}</p>`;
+    const status = `<p>You decide ${decide} the work gets done, and you use your own tools. Nothing in this letter makes you an employee of ${COMPANY}.${st === 'Standard' ? conLoc() : ''}</p>`;
+    const ip = `<p>You'll keep ${COMPANY}'s confidential information private, and the work you create for us under this engagement belongs to ${COMPANY}. You'll sign our Contractor Confidentiality and IP Assignment Agreement, which comes with this letter.</p>`;
+    if(st === 'Concise') return head + `<p>Dear ${first()},</p>
+      <p>We'd like to engage you as an independent contractor in the role of ${title()}, from ${start()}, to ${end()}, ${conWhere()}, at ${pay()}, paid against your invoices. Your point of contact is ${rep()}.${dept()}${bonusLong()}${equityLong()}</p>
+      ${lines.length ? duties("Services:", '') : ''}
+      <p>You decide ${decide} the work gets done, handle your own taxes, and aren't eligible for employee benefits. Your work for us belongs to ${COMPANY}, under the agreement that comes with this letter. Either of us can end the engagement early with written notice.</p>
+      ${ask}<p>Please sign by ${exp()}.</p>` + sig;
+    return head + `<p>Dear ${first()},</p><p>We'd like to engage you as an independent contractor for ${COMPANY}. Here are the key terms.</p>
+      ${kt([['Role', title()], ['Engagement', 'Independent contractor'], ['Starts', start()], ['Ends', end()], ['Point of contact', rep()], f.location === 'Hybrid' ? ['Workspace', `${ofc()} available (hybrid)`] : onsite ? ['Workspace', ofc()] : ['Work location', place()],
+        f.department.trim() ? ['Team', `<span class="v" data-v="department">${esc(f.department.trim())}</span>`] : null,
+        ['Rate', pay()], f.bonusOpen ? ['Signing bonus', bonusShort()] : null, f.equityOpen ? ['Equity', g('equity')] : null, ['Offer expires', exp()]])}
+      ${sec('1. Services')}${services()}
+      ${sec('2. Payment')}${payC()}
+      ${sec('3. Your status')}${status}
+      ${sec('4. Confidentiality and work product')}${ip}
+      ${sec('5. Expenses')}${expenses}
+      ${sec('6. Ending the engagement')}<p>The engagement ends on ${end()}. Either of us can end it earlier with written notice.</p>
+      ${sec('7. The whole agreement')}${whole}
+      ${sec('8. Accepting this offer')}<p>This offer expires on ${exp()}. To accept, sign this letter electronically by then.</p>${ask}<p>Sincerely,</p>` + sig;
+  }
+
+  const role = () => duties('Your duties may include:', `Your duties will be those that fit the role and the needs of the business, and they may change over time.`);
+  const payE = () => `<p>Your pay is ${pay()}, paid on ${COMPANY}'s regular payroll schedule, less required taxes and withholdings.${bonusLong()}${equityLong()}</p>`;
+  const benefits = `<p>You'll be eligible for the benefits and paid time off ${COMPANY} offers employees in your role, under its plans and policies, which may change from time to time.</p>`;
+  const conditions = `<p>This offer depends on you showing that you're allowed to work in the United States (Form I-9) within three business days of your start date, and on a satisfactory background check. You'll also sign ${COMPANY}'s Confidential Information and Invention Assignment Agreement, which comes with this letter.</p>`;
+  const atWill = `<p>Your employment is at will: you or ${COMPANY} can end it at any time, with or without cause or notice.</p>`;
+  if(st === 'Concise') return head + `<p>Dear ${first()},</p>
+    <p>We're offering you the role of ${title()} at ${COMPANY}, as ${emp ? `a ${kind()} employee` : g('empType')}, starting ${start()}, and reporting to ${rep()}. You'll work ${where()}.${dept()} Your pay is ${pay()}.${bonusLong()}${equityLong()}</p>
+    ${role()}
+    <p>This offer depends on proof that you can work in the United States and a satisfactory background check. You'll also sign our Confidential Information and Invention Assignment Agreement. Benefits and time off follow ${COMPANY}'s policies. Your employment is at will: either of us can end it at any time, with or without cause or notice.</p>
+    ${ask}<p>Please sign by ${exp()}.</p>` + sig;
+  return head + `<p>Dear ${first()},</p><p>We're delighted to offer you a position at ${COMPANY}. Here are the key terms.</p>
+    ${kt([['Position', title()], ['Employment type', emp ? `<span class="v" data-v="empType">${f.empType === 'ft' ? 'Full-time' : 'Part-time'} employee</span>` : g('empType')],
+      ['Start date', start()], ['Reports to', rep()], ['Work location', place()],
+      f.department.trim() ? ['Department', `<span class="v" data-v="department">${esc(f.department.trim())}</span>`] : null,
+      ['Pay', pay()], f.bonusOpen ? ['Signing bonus', bonusShort()] : null, f.equityOpen ? ['Equity', g('equity')] : null, ['Offer expires', exp()]])}
+    ${sec('1. Your role')}<p>You'll join ${COMPANY} in the role of ${title()}, reporting to ${rep()}.</p>${role()}
+    ${sec('2. Pay')}${payE()}
+    ${sec('3. Benefits and time off')}${benefits}
+    ${sec('4. Conditions of this offer')}${conditions}
+    ${sec('5. At-will employment')}${atWill}
+    ${sec('6. Other work and past employers')}${other}
+    ${sec('7. The whole agreement')}${whole}
+    ${sec('8. Accepting this offer')}<p>This offer expires on ${exp()}. To accept, sign this letter electronically by then. We're excited to have you join us.</p>${ask}<p>Sincerely,</p>` + sig;
+}
+
+/* ===================== surgical updates (focus is never lost) ===================== */
+let ACC = null, CHECK = null;
+function crumbsHTML(){
+  const nm = fullName(), cur = S.screen === 'list' ? 'Offer letters' : (nm ? 'Offer for ' + nm : 'New offer');
+  return S.screen === 'list' ? `<span aria-current="page">Offer letters</span>`
+    : `<a href="#" data-act="to-list" class="first">Offer letters</a><span class="sep" aria-hidden="true">/</span><span aria-current="page" id="crumbNow">${esc(cur)}</span>`;
+}
+function updateHeader(){
+  const nm = fullName(), h = $('#pageH1');
+  if(h && S.screen === 'offer') h.textContent = nm ? 'Offer for ' + nm : 'New offer';
+  const cn = $('#crumbNow'); if(cn) cn.textContent = nm ? 'Offer for ' + nm : 'New offer';
+  const lt = $('#letterTitle'); if(lt) lt.textContent = `What ${who() || 'the candidate'} will see`;
+  setTitle();
+}
+function setTitle(){
+  const base = S.screen === 'offer' ? (fullName() ? 'Offer for ' + fullName() : 'New offer')
+    : S.screen === 'review' ? `Check and send ${poss().trim()} offer` : S.screen === 'sent' ? 'Offer sent' : 'Offer letters';
+  const err = (S.screen === 'offer' && S.errItems) || (S.screen === 'review' && S.sendErr);
+  document.title = (err ? 'Error: ' : '') + base + ' · Bolto';
+}
+/* Add button: fades out/in (opacity); the sibling button slides into place (FLIP by transform). Hidden after the fade. */
+function fadeAdd(btn, open){
+  if(!btn) return;
+  btn.setAttribute('aria-expanded', String(open));
+  const on = !open;   /* on = the button is shown (hidden while its panel is open) */
+  if(on ? (!btn.hidden && btn.dataset.fading !== 'out') : (btn.hidden || btn.dataset.fading === 'out')) return;
+  const tok = (btn.__fd = (btn.__fd || 0) + 1), ms = Motion.ms('--d-fade-out');
+  const sib = [...btn.parentElement.children].find(x => x !== btn && !x.hidden);
+  const slide = from => { if(!sib || !from || !ms) return; const to = sib.getBoundingClientRect(), dx = from.left - to.left, dy = from.top - to.top; if(!dx && !dy) return;
+    sib.style.transition = 'none'; sib.style.transform = `translate(${dx}px, ${dy}px)`; void sib.offsetWidth;
+    sib.style.transition = 'transform var(--d-base) var(--ease-enter)'; sib.style.transform = '';
+    Motion.after(sib, Motion.ms('--d-base')).then(() => { if(!sib.style.transform) sib.style.transition = ''; }); };
+  if(on){
+    const from = sib && sib.getBoundingClientRect();
+    delete btn.dataset.fading; btn.hidden = false; slide(from);
+    if(!ms){ btn.style.opacity = ''; btn.style.transition = ''; return; }
+    btn.style.transition = 'none'; btn.style.opacity = '0'; void btn.offsetWidth;
+    btn.style.transition = 'opacity var(--d-base) var(--ease-enter)'; btn.style.opacity = '';
+    Motion.after(btn, Motion.ms('--d-base')).then(() => { if(btn.__fd === tok) btn.style.transition = ''; });
+  } else {
+    if(!ms){ btn.hidden = true; return; }
+    btn.dataset.fading = 'out'; btn.style.transition = 'opacity var(--d-fade-out) var(--ease-exit)'; btn.style.opacity = '0';
+    Motion.after(btn, ms).then(() => { if(btn.__fd !== tok) return; delete btn.dataset.fading;
+      const from = sib && !sib.hidden && sib.getBoundingClientRect(); btn.hidden = true; btn.style.opacity = ''; btn.style.transition = ''; slide(from); });
+  }
+}
+function updateConditional(){
+  const f = S.f, show = (sel, on) => $$(`[data-when="${sel}"]`).forEach(el => el.hidden = !on);
+  show('con', isCon());
+  show('remote', f.location === 'Remote' && isEmp());
+  show('office', f.location === 'Hybrid' || f.location === 'On-site');
+  /* the months row stays as it is while the bonus panel closes, so the panel shrinks in one motion, then it resets */
+  if(f.bonusOpen) show('repay', f.bonusRepay);
+  Motion.reveal($('#bonusPanel'), f.bonusOpen).then(() => { if(!S.f.bonusOpen) show('repay', S.f.bonusRepay); });
+  fadeAdd($('#bonusAdd'), f.bonusOpen);
+  Motion.reveal($('#equityPanel'), f.equityOpen); fadeAdd($('#equityAdd'), f.equityOpen);
+  Motion.reveal($('#addWrap'), !(f.bonusOpen && f.equityOpen));
+  const rl = $('#l-reportsTo'); if(rl) rl.textContent = isCon() ? 'Point of contact' : 'Reports to';
+  const rt = $('[data-f="bonusRepay"] .tip-btn'); if(rt) rt.dataset.text = isCon() ? TIP.repayC : TIP.repay;
+  const u = $('#u-amount'); if(u) u.textContent = f.payType === 'Hourly' ? '/ hour' : (f.payType === 'Salary' ? '/ year' : '');
+  const wh = $('#h-work'); if(wh) wh.textContent = workHint();
+  [['startDate', dayHint(f.startDate)], ['endDate', dayHint(f.endDate)], ['expiry', expiryHint()]].forEach(([k, t]) => { const h = $('#h-' + k); if(h){ h.textContent = t; h.hidden = !t; } });
+  [['reportsTo', f.reportsTo], ['sender', sender().name]].forEach(([k, n]) => { const a = $('#av-' + k); if(a){ a.textContent = n ? initials(n) : ''; a.classList.toggle('empty', !n); } });
+}
+function updateHire(k){
+  const hb = $('#hireBody'); if(!hb) return;
+  if(!['duties', 'invite'].includes(k)){
+    const html = hireHTML();
+    if(html !== S.hireHTML){
+      const a = document.activeElement, inside = a && hb.contains(a) ? a.id : null;
+      hb.innerHTML = html; S.hireHTML = html;
+      hb.querySelectorAll('.floor-track').forEach(t => floorRO.observe(t));
+      if(inside){ const el = document.getElementById(inside); if(el) el.focus({preventScroll:true}); }
+    }
+  }
+  const r = $('#ot-result');
+  if(r){ const t = resultText(), nonEx = !t.soft && otFinal() === false; r.hidden = !t.t; r.classList.toggle('soft', t.soft); r.classList.toggle('neutral', nonEx);
+    const html = t.t ? `${I(t.soft ? 'info' : nonEx ? 'clock-3' : 'circle-check')}<span>${esc(t.t)}</span>` : ''; if(r.dataset.html !== html){ r.innerHTML = html; r.dataset.html = html; } }
+  const o = ot(), line = o.mode === 'auto' ? `Gets overtime pay (non-exempt). ${o.why}` : (o.mode === 'hourly' || o.mode === 'salary') ? resultText().t : '';
+  if(S.otSaid !== null && line && line !== S.otSaid) say(line);
+  S.otSaid = line;
+}
+function updateLetter(){
+  const L = $('#letter'); if(!L) return;
+  const a = document.activeElement, k = a && a.name, html = letterHTML(false);
+  if(L.dataset.html !== html){ L.innerHTML = html; L.dataset.html = html;
+    S.fresh.forEach((v, key) => $$(`.paper [data-v="${key}"]`, L).forEach(x => x.classList.add('is-fresh'))); }
+  if(k) highlight(k);
+}
+/* M7: the changed words hold a tint while typing, then fade over --d-glow */
+function markFresh(k){
+  clearTimeout(S.fresh.get(k));
+  S.fresh.set(k, setTimeout(() => { S.fresh.delete(k); $$(`.paper [data-v="${k}"]`).forEach(x => x.classList.remove('is-fresh')); }, 700));
+}
+function highlight(k){
+  $$('#letter .is-linked').forEach(x => x.classList.remove('is-linked'));
+  if(!k) return;
+  const hits = $$(`#letter [data-v="${k}"], #letter .gap[data-go="${k}"]`);
+  hits.forEach(x => x.classList.add('is-linked'));
+  const pane = $('#ltScroll');
+  if(hits[0] && pane && pane.scrollHeight > pane.clientHeight + 1){
+    const r = hits[0].getBoundingClientRect(), pr = pane.getBoundingClientRect();
+    if(r.top < pr.top + 40 || r.bottom > pr.bottom - 16) pane.scrollTo({top: pane.scrollTop + r.top - pr.top - pr.height / 3, behavior: Motion.reduced() ? 'auto' : 'smooth'});
+  }
+}
+function footerOffer(){
+  return `<button type="button" class="count" id="countBtn"><span id="countIcon"></span><span class="count-text" id="countText"></span></button><span class="spacer"></span>
+    <button type="button" class="btn btn-primary" data-act="review">Review offer</button>`;
+}
+function updateBar(announce, first){
+  const miss = missing(), n = miss.length, t = n ? `${n} left` : 'Ready to review';
+  const ct = $('#countText'), ci = $('#countIcon'); if(!ct) return;
+  if(first){ ct.innerHTML = esc(t); ct.dataset.html = esc(t); } else Motion.swapText(ct, esc(t));
+  const total = SECTIONS.reduce((a, s) => a + KEYS[s.id].filter(applies).length, 0), frac = total ? (total - n) / total : 0;
+  if(!ci.firstChild) ci.innerHTML = Ring.html();
+  Ring.set($('.ring', ci), {state: n ? (frac ? 'progress' : 'todo') : 'done', frac}, {animate: !first});
+  $('#countBtn').setAttribute('aria-label', n ? `${t}. Go to the first one` : t);
+  if(announce){ if(S.lastN !== null && n !== S.lastN) say(t + '.'); S.lastN = n; }
+  else if(S.lastN === null) S.lastN = n;
+}
+/* Hire setup depends on pay and place, so a half-typed amount ("1" of "150000") must not complete it: while typing
+   (commit=false) its ring and every section's done/close/announce wait for the commit (change or blur). A section that
+   was done and reopens because of a new gap says so once. */
+const PAY_DEP = new Set(['hire']);
+function updateStatus(first, commit = true){
+  const miss = missing();
+  SECTIONS.forEach(s => { if(CHECK && (commit || !PAY_DEP.has(s.id))) CHECK.set(s.id, {...secStatus(s.id, miss), animate: !first}); });
+  if(!ACC || !commit) return;
+  SECTIONS.forEach(s => { const x = ACC.s.get(s.id), st = secStatus(s.id, miss);
+    if(x && x.prevDone && st.state !== 'done') say(st.left ? `${s.title} needs ${st.left} more answer${st.left > 1 ? 's' : ''}.` : `${s.title} isn't done. ${st.label || ''}`.trim()); });
+  ACC.update();
+}
+
+/* ===================== saving (autosave only; the header never says more than is true, C7) ===================== */
+/* r3: old and new layers crossfade in one held-width cell (Hifi.SaveMark); unchanged state/text = no-op */
+let SAVEMARK = null;
+const liveRetry = () => SAVEMARK && SAVEMARK.layer() ? SAVEMARK.layer().querySelector('.retry') : null;
+function setSave(state, text){
+  S.save = state; const el = $('#saveState'); if(!el) return;
+  if(!SAVEMARK) SAVEMARK = SaveMark(el, {sizes: [SaveMark.saving('Saving'), `${I('circle-check')}<span>Saved</span>`]});
+  const r = liveRetry();
+  if(state === 'saving' && r){ busy(r, true); return; }
+  if(state === 'failed' && r){ busy(r, false); return; }
+  el.dataset.state = state;
+  if(state === '') { SAVEMARK.set('', ''); return; }
+  if(state === 'saving'){ SAVEMARK.set('saving', SaveMark.saving('Saving')); return; }
+  if(state === 'saved'){ SAVEMARK.set('saved|' + (text || 'Saved'), `${I('circle-check')}<span>${esc(text || 'Saved')}</span>`, {draw:true}); return; }
+  if(state === 'failed'){
+    SAVEMARK.set('failed', `${I('circle-alert')}<span>Couldn't save</span><span aria-hidden="true">·</span><button type="button" class="linkbtn retry" data-act="retry"><span class="label">Try again</span><span class="spin">${I('loader-circle', 'spinner ic-sm')}</span></button>`);
+    say("Couldn't save.");
+  }
+}
+function saveDraft(){
+  S.draft = true; clearTimeout(S.saveT);
+  setSave('saving');
+  S.saveT = setTimeout(() => {
+    if(WF.saveFail){ setSave('failed'); return; }
+    const wasRetry = !!liveRetry(), hadFocus = wasRetry && document.activeElement === liveRetry();
+    const t = new Date().toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit'});
+    S.savedAt = `${md(TODAY)}, ${t}`; setSave('saved');
+    if(hadFocus){ const h = $('#pageH1'); h && h.focus({preventScroll:true}); }
+  }, 600);
+}
+function payWarning(){
+  const w = $('#warn-amount'); if(!w) return;
+  const a = num(S.f.amount); let t = '';
+  if(a && S.f.payType === 'Hourly' && a >= 1000) t = `${money(a)} an hour? That looks like a yearly salary.`;
+  if(a && S.f.payType === 'Salary' && a < 1000) t = `${money(a)} a year? That looks like an hourly rate.`;
+  const p = $('p', w); if(p.textContent !== t){ p.textContent = t; w.hidden = !t; if(t) say(t); }
+}
+
+/* ===================== errors: the list from the last press of "Review offer"; an item drops as soon as it's fixed ===================== */
+function renderErrors(){
+  const slot = $('#errsumSlot'); if(!slot) return;
+  let shown = [];
+  if(S.errItems){ const now = new Set(missing().map(m => m.k)); shown = S.errItems.filter(i => now.has(i.k)); if(!shown.length) S.errItems = null; }
+  const want = new Map(shown.map(i => [i.k, i.msg]));
+  /* on-blur checks (email format, amount above 0): shown under the field only, dropped the moment the value is valid */
+  const miss = new Map(missing().map(m => [m.k, m.msg]));
+  S.blurErr.forEach(k => { if(miss.has(k)){ if(!want.has(k)) want.set(k, miss.get(k)); } else S.blurErr.delete(k); });
+  $$('.field[data-f]').forEach(fe => {
+    const k = fe.dataset.f, e = document.getElementById('e-' + k), on = want.has(k) && !!e;
+    fe.classList.toggle('has-err', on);
+    if(e){ const t = on ? want.get(k) : '', box = e.closest('.err');
+      if(e.dataset.t !== t){ e.dataset.t = t;
+        if(on){ e.innerHTML = `${I('circle-alert')}<span><span class="sr">Error: </span>${esc(t)}</span>`; Motion.reveal(box, true); }
+        else Motion.reveal(box, false).then(() => { if(!e.dataset.t) e.innerHTML = ''; }); } }
+    const c = document.getElementById('f-' + k);
+    if(c){ const base = c.dataset.db || '', db = [base, on ? 'e-' + k : ''].filter(Boolean).join(' ');
+      if(c.matches('input, select, textarea')){ if((c.getAttribute('aria-describedby') || '') !== db){ db ? c.setAttribute('aria-describedby', db) : c.removeAttribute('aria-describedby'); } }
+      else { $$('input', c).forEach(inp => { on ? inp.setAttribute('aria-describedby', 'e-' + k) : inp.removeAttribute('aria-describedby'); }); }
+    }
+  });
+  if(!shown.length){ if(slot.innerHTML){ slot.innerHTML = ''; slot.dataset.html = ''; } setTitle(); return; }
+  const html = `<div class="callout callout-error errsum" id="errsum" tabindex="-1" aria-labelledby="errsum-h">${I('circle-alert')}<div><h2 class="callout-t" id="errsum-h">There is a problem</h2>
+    <ul>${shown.map(i => `<li><a href="#f-${i.k}" data-go="${i.k}">${esc(i.msg)}</a></li>`).join('')}</ul></div></div>`;
+  if(slot.dataset.html !== html){ const had = document.activeElement && slot.contains(document.activeElement); slot.innerHTML = html; slot.dataset.html = html; if(had) $('#errsum').focus(); }
+  setTitle();
+}
+
+function refresh(k, commit){
+  if(commit && isEmp() && !S.pgOverride && derivedGroup() && S.f.payrollGroup !== derivedGroup()) S.f.payrollGroup = derivedGroup();
+  if(commit) updateConditional();
+  updateHeader();
+  if(commit) updateHire(k);
+  updateLetter();
+  updateBar(commit);
+  renderErrors();
+  updateStatus(false, commit);
+}
+
+/* ===================== changes (lo-fi) ===================== */
+function onCommit(k, prevType){
+  const f = S.f;
+  if(k === 'empType' && prevType){
+    const wasE = prevType === 'ft' || prevType === 'pt';
+    if(wasE && isCon()) say("Contractor offer: overtime, payroll group and I-9 don't apply and are hidden.");
+    if(prevType === 'c' && isEmp()) say('Employee offer: the contract end date is hidden. Overtime, payroll group and I-9 now apply.');
+  }
+  if(k === 'payType' && !S.pgOverride) f.payrollGroup = derivedGroup();
+  if(k === 'payrollGroup') S.pgOverride = f.payrollGroup !== derivedGroup();
+  if(k === 'duties'){ S.otBasis = basisKey(); S.otMode = ot().mode; }
+  /* C19: keep an answer that is still one of the options shown; clear it only when it no longer applies, and say why */
+  if(['payType', 'amount', 'location', 'state', 'workplace'].includes(k) && f.duties && S.otBasis !== basisKey()){
+    const o = ot(), opts = o.mode === 'hourly' ? ['software', 'none', 'unsure'] : o.mode === 'salary' ? o.opts : [];
+    if(o.mode === 'wait'){ /* the question isn't shown yet; judge the answer once pay and place are complete */ }
+    else if(o.mode === S.otMode && opts.includes(f.duties)) S.otBasis = basisKey();
+    else {
+      const prev = S.otMode, was = prev === 'hourly' ? {software:'Yes', none:'No', unsure:"I'm not sure"}[f.duties] : DUTIES[f.duties];
+      f.duties = ''; S.otBasis = ''; S.otMode = '';
+      say(o.mode === 'auto' || o.mode === 'na' ? `Your overtime answer "${was}" was cleared: it no longer applies at this pay and place.`
+        : prev && prev !== o.mode ? `Your overtime answer "${was}" was cleared: the overtime question changed with the pay type. Answer it again.`
+        : `Your overtime answer "${was}" was cleared: it isn't one of the options at this pay and place. Answer the overtime question again.`);
+    }
+  }
+  if(k === 'amount' || k === 'payType') payWarning();
+  if(S.draft || !['bonusOpen', 'equityOpen'].includes(k)) saveDraft();
+  refresh(k, true);
+}
+function bindOffer(){
+  const m = $('#screen');
+  m.oninput = e => {
+    const el = e.target, k = el.name;
+    if(!k || !(k in S.f) || el.type === 'radio' || el.type === 'checkbox' || el.tagName === 'SELECT' || el.type === 'date') return;
+    S.f[k] = el.value; markFresh(k); refresh(k, false);
+    if(S.save !== 'saving' && !liveRetry()) setSave('saving');
+    clearTimeout(S.saveT); S.saveT = setTimeout(saveDraft, 1000);
+  };
+  m.onchange = e => {
+    const el = e.target;
+    if(el.name === 'style'){ S.style = el.value; updateLetter(); say('Letter style: ' + el.value + '.'); return; }
+    if(el.name === 'view'){ setLetterView(el.value === 'preview', false, {fromSwitch:true}); return; }
+    const k = el.name; if(!k || !(k in S.f)) return;
+    const prevType = S.f.empType;
+    S.lastField = k;
+    S.f[k] = el.type === 'checkbox' ? el.checked : el.value;
+    if(el.type !== 'checkbox') markFresh(k);
+    onCommit(k, prevType);
+  };
+}
+
+function focusField(k){
+  if(document.body.classList.contains('view-letter')) setLetterView(false, true);
+  if(k === 'bonus' || k === 'bonusMonths'){ S.f.bonusOpen = true; if(k === 'bonusMonths') S.f.bonusRepay = true; updateConditional(); }
+  if(k === 'equity'){ S.f.equityOpen = true; updateConditional(); }
+  if(k in S.f) S.lastField = k;
+  const sec = secOf(k), wasOpen = ACC.isOpen(sec);
+  const opened = wasOpen ? null : ACC.open(sec, {how:'auto'});
+  let el = document.getElementById('f-' + k);
+  if(k === 'duties') el = $('#hireBody input[name="duties"]:checked') || $('#hireBody input[name="duties"]') || $('#ot-wait-link') || $('#secp-hire a, #secp-hire input');
+  if(el && el.matches('[role=radiogroup], fieldset, .seg-host')) el = el.querySelector('input:checked') || el.querySelector('input');
+  if(!el) return;
+  /* focus now, then Hifi.reveal scrolls once the open settles so the field sits below the sticky bars, above the footer */
+  /* the section's own top stays still while its panel grows, so reveal waits for ACC.open's promise, not the anchor */
+  Hifi.focusQuiet(el);
+  /* a field deep in a tall section (Invite) anchors itself when the section's top would push it under the footer */
+  Promise.resolve(opened).then(() => { const sa = $('#sec-' + sec), fe = el.closest('.field') || el;
+    const fits = fe.getBoundingClientRect().bottom - sa.getBoundingClientRect().top <= window.innerHeight - Hifi.stickyTop() - Hifi.stickyBottom() - 32;
+    Hifi.reveal(el, {anchor: wasOpen || !fits ? fe : sa, block: wasOpen ? 'nearest' : 'start'}); });
+  CHECK.current(sec);
+}
+/* r12 B1: Edit -> Preview -> Edit comes back to the same field at the same screen top, even after a section opened or
+   closed meanwhile (Keeper.hold keeps it there until the open/close settles) */
+function stackBottom(){ return Math.max(0, ...$$('.hx-header, .hx-switch, .hx-chips').map(e => { const cs = getComputedStyle(e), r = e.getBoundingClientRect();
+  return /sticky|fixed/.test(cs.position) && r.height && r.top < window.innerHeight / 2 ? r.bottom : 0; })); }
+/* from the Edit/Preview switch (fromSwitch) the place comes back but focus stays on the switch radio */
+function restoreEdit(r, o = {}){
+  const el = r && r.el && (r.el.isConnected ? r.el : (r.id && document.getElementById(r.id)));
+  if(el){
+    const sec = el.closest('.acc[data-sec]'), id = sec && sec.dataset.sec;
+    if(id && !ACC.isOpen(id)){ ACC.open(id, {how:'auto'}); const x = ACC.s.get(id); if(x.isDone() && !x.pinned) x.pending = true; }
+    if(!o.fromSwitch) Hifi.focusQuiet(el);
+    Hifi.Keeper.hold(el, r.top, Motion.ms('--d-slow', {raw:true}) + Motion.ms('--d-close', {raw:true}) + 300);
+    if(id) CHECK.current(id);
+    return;
+  }
+  if(r && r.y != null){ window.scrollTo(0, r.y); return; }
+  window.scrollTo(0, 0); if(o.fromSwitch) return; const k = S.lastField; if(k) focusField(k); else $('#pageH1').focus();
+}
+/* r12 B5: the error summary already in view stays put; otherwise the page title lands just under the sticky bars */
+function revealErrsum(es){
+  const cs = getComputedStyle(document.documentElement), bot = parseFloat(cs.scrollPaddingBottom) || 0, r = es.getBoundingClientRect();
+  if(r.top >= stackBottom() - 0.5 && r.bottom <= window.innerHeight - bot + 0.5) return;
+  const h = $('#pageH1'); (h || es).scrollIntoView({block:'start'});
+}
+function setLetterView(on, quiet, o = {}){
+  if(on && S.view !== 'preview'){ const a = S.lastFocusEl;
+    S.ret = a && a.isConnected && a.getClientRects().length ? {el:a, id:a.id, top: S.snapEl === a ? S.snapTop : a.getBoundingClientRect().top} : {y:window.scrollY}; }
+  if(!on && quiet) S.ret = null;
+  S.view = on ? 'preview' : 'edit';
+  document.body.classList.toggle('view-letter', on);
+  const r = $(`#hxSwitch input[value="${S.view}"]`); if(r && !r.checked){ r.checked = true; Segmented.sync($('#hxSwitch .seg'), true); }
+  if(on){ window.scrollTo(0, 0); if(!o.fromSwitch){ const t = $('#letterTitle'); t && t.focus({preventScroll:true}); } }
+  else if(!quiet){ const r = S.ret; S.ret = null; restoreEdit(r, o); }
+}
+function pressReview(){
+  const miss = missing();
+  if(document.body.classList.contains('view-letter')) setLetterView(false, true);
+  if(miss.length){
+    S.errItems = miss.map(m => ({k:m.k, msg:m.msg}));
+    $('#errsumSlot').dataset.html = '';
+    renderErrors(); updateStatus();
+    /* rule 8: reopen only the sections with gaps */
+    new Set(miss.map(m => secOf(m.k))).forEach(id => ACC.open(id, {how:'auto', animate:false}));
+    const es = $('#errsum'); es.focus({preventScroll:true}); revealErrsum(es);
+  } else { S.errItems = null; S.sendErr = false; go('review', {animate:true}); }
+}
+
+/* ===================== screen: review ===================== */
+function reviewHTML(){
+  const f = S.f, w = esc(who()), s = sender();
+  const items = [];
+  if(isEmp() && f.location === 'Remote') items.push(['map-pin', `Works from ${esc(stateName(f.state))}`, 'state', 'work state']);
+  if(isEmp()){
+    items.push(['badge-dollar-sign', `Payroll group: ${esc(f.payrollGroup)}`, 'payrollGroup', 'payroll group']);
+    items.push(['clock-3', otWords(otFinal()), 'duties', 'overtime']);
+    items.push(['shield-check', 'I-9 collected after signing', null]);
+  } else items.push(['file-text', 'Contractor: no payroll group, overtime or I-9', null]);
+  items.push(['mail', f.invite ? 'Invited to Bolto after signing' : 'Not invited to Bolto automatically', 'invite', 'invite']);
+  return `<div class="rv" id="rvPage">
+    <h1 class="hx-title" id="pageH1" tabindex="-1">Check and send ${w}'s offer</h1>
+    <div id="sendErrSlot">${S.sendErr ? sendErrHTML() : ''}</div>
+    <div class="rv-grid">
+      <section aria-labelledby="rv-letter"><h2 id="rv-letter" class="sr">The letter</h2><div class="paper">${letterHTML(true)}</div>
+        <p class="attach">${I('file-text')}<span>Sent with the letter: ${isCon() ? 'Contractor Confidentiality and IP Assignment Agreement' : 'Confidential Information and Invention Assignment Agreement'} (the company's own document, not shown here).</span></p></section>
+      <div class="rv-side">
+        <section class="card" aria-labelledby="rv-nil"><h2 class="card-h" id="rv-nil">${I('eye')}Not in the letter</h2>
+          <ul class="nil">${items.map(([ic, t, k, n]) => `<li>${I(ic)}<span>${t}</span>${k ? `<a href="#f-${k}" class="linkbtn" data-change="${k}">Change<span class="sr"> ${n}</span></a>` : '<span></span>'}</li>`).join('')}</ul></section>
+        <section class="card" aria-labelledby="rv-email"><h2 class="card-h" id="rv-email">${I('mail')}The email ${w} gets</h2>
+          <div class="email">
+            <dl><dt>To</dt><dd>${esc(f.email)}</dd><dd><a href="#f-email" class="linkbtn" data-change="email">Change<span class="sr"> email address</span></a></dd>
+                <dt>From</dt><dd>${esc(s.name)} via Bolto</dd><dd></dd>
+                <dt>Subject</dt><dd>Your offer from ${COMPANY}</dd><dd></dd></dl>
+            <div class="b"><p>Hi ${w},</p>
+              <div><div class="lbl"><label for="pnote">Personal note <span class="opt">(optional)</span></label></div>
+              <textarea class="textarea" id="pnote" name="note">${esc(f.note)}</textarea></div>
+              <p>Your offer letter is ready to review and sign.</p><p>Please sign by ${fdate(f.expiry)}.</p><span class="fakebtn" aria-hidden="true">Review and sign</span><span class="sr">A "Review and sign" button.</span></div>
+          </div></section>
+      </div>
+    </div></div>`;
+}
+function footerReview(){
+  return `<button type="button" class="btn btn-secondary" data-act="edit">${I('arrow-left')}Edit offer</button><span class="spacer"></span>
+    <button type="button" class="btn btn-primary btn-send" data-act="send" id="sendBtn"><span class="label">Send offer to ${esc(who())}${I('send')}</span><span class="spin">${I('loader-circle', 'spinner')}</span></button>`;
+}
+function sendErrHTML(){
+  return `<div class="callout callout-error" id="sendErr" tabindex="-1" role="group" aria-labelledby="sendErr-h" aria-describedby="sendErr-b" style="margin-top:var(--s4)">${I('circle-alert')}<div><h2 class="callout-t" id="sendErr-h">Couldn't send</h2><p id="sendErr-b">Nothing was sent to ${esc(who())}. Try again.</p></div></div>`;
+}
+
+/* ===================== screen: sent ===================== */
+function sentHTML(){
+  const steps = ['Sent', 'Viewed', 'Signed'].concat(S.f.invite ? ['Invited'] : []);
+  return `<div class="sent">
+    <svg class="sent-mark" viewBox="0 0 72 72" aria-hidden="true"><circle cx="36" cy="36" r="32"/><path d="M23 37l9 9 17-19"/></svg>
+    <h1 class="hx-title" id="pageH1" tabindex="-1">Offer sent to ${esc(fullName())}</h1>
+    <p>We've emailed ${esc(who())} a link to read and e-sign the letter.</p>
+    <p>${esc(who())} has until ${fdate(S.f.expiry)}, to sign.</p>
+    <ol class="track" aria-label="Offer status">${steps.map((t, i) => `<li class="${i === 0 ? 'on' : ''}"><span class="st">${i === 0 ? I('check') : ''}</span><span>${t}</span>${i === 0 ? '<span class="sr"> (current)</span>' : ''}</li>`).join('')}</ol>
+    <button type="button" class="btn btn-secondary" data-act="to-list">Back to offer letters</button></div>`;
+}
+
+/* ===================== screen: offer letters (stand-in, out of scope) ===================== */
+function listHTML(){
+  const f = S.f, nm = fullName() || 'Untitled offer';
+  const st = S.sent ? ['Sent', 'tag-success', 'circle-check'] : missing().length ? ['Draft', 'tag-neutral', 'circle-dashed'] : ['Ready to send', 'tag-success', 'circle-check'];
+  const row = (S.draft || S.sent) ? `<table class="tbl"><thead><tr><th scope="col">Candidate</th><th scope="col">Role</th><th scope="col">Status</th></tr></thead>
+    <tbody><tr><td>${S.sent ? esc(nm) : `<a href="#" data-act="open-draft">${esc(nm)}</a>`}</td><td>${esc(f.title) || '<span aria-label="none">—</span>'}</td><td><span class="tag ${st[1]}">${I(st[2])}${st[0]}</span></td></tr></tbody></table>` : '<p class="plain">No offers yet.</p>';
+  return `<div class="list">
+    <div class="list-head"><h1 class="hx-title" id="pageH1" tabindex="-1">Offer letters</h1><button type="button" class="btn btn-primary" data-act="create">${I('plus')}Create offer letter</button></div>
+    ${row}</div>`;
+}
+
+/* ===================== routing ===================== */
+function go(screen, opts = {}){
+  const doGo = () => {
+    if(S.screen === 'offer' && screen !== 'offer') S.newOffer = false;
+    S.screen = screen; S.view = 'edit';
+    document.body.classList.remove('view-letter');
+    document.body.style.minHeight = '';
+    const m = $('#screen'); m.oninput = null; m.onchange = null; ACC = null; CHECK = null;
+    $('#crumbs').innerHTML = crumbsHTML();
+    $('#saveState').hidden = screen !== 'offer';
+    const ft = $('#footer'), fi = $('#footerIn');
+    if(screen === 'offer'){
+      m.innerHTML = (`<div class="hx-switch" id="hxSwitch">${Segmented.html('view', [['edit', 'Edit'], ['preview', 'Preview']], 'edit', {label:'View'})}</div>`) + offerHTML();
+      fi.innerHTML = footerOffer(); ft.hidden = false;
+      S.hireHTML = ''; bindOffer(); S.lastN = null; S.otSaid = null;
+      CHECK = new Checklist({items: SECTIONS.map(s => ({id:s.id, label:s.title})), rail: $('#rail'), chips: $('#chips'), onJump: jump});
+      ACC = new Accordion({sections: SECTIONS.map(s => ({id:s.id, title:s.title, el: $('#sec-' + s.id), isDone: () => secStatus(s.id).state === 'done', summary: () => summary(s.id)})),
+        onToggle: (id, open, how) => { if(how === 'user') CHECK.current(id); }});
+      if(isEmp() && !S.pgOverride && derivedGroup()) S.f.payrollGroup = derivedGroup();
+      updateConditional(); updateHeader(); updateHire(null); updateLetter(); updateBar(false, true); renderErrors();
+      SECTIONS.forEach(s => CHECK.set(s.id, {...secStatus(s.id), animate:false}));
+      /* rule 2: a new offer opens with all six open; a draft opens with done sections collapsed */
+      const isNew = S.newOffer;
+      ACC.init(id => isNew || secStatus(id).state !== 'done');
+      Segmented.init(m);
+      setSave(S.draft ? 'saved' : '', S.save === 'saved-back' ? S.savedText : undefined);
+      if(S.saveTextOnce){ setSave('saved', S.saveTextOnce); S.saveTextOnce = ''; }
+      if(WF.saveFail && S.draft && S.failOnLoad){ setSave('failed'); S.failOnLoad = false; }
+    }
+    if(screen === 'review'){ m.innerHTML = reviewHTML(); fi.innerHTML = footerReview(); ft.hidden = false; m.oninput = e => { if(e.target.id === 'pnote') S.f.note = e.target.value; }; }
+    if(screen === 'sent'){ m.innerHTML = sentHTML(); ft.hidden = true; fi.innerHTML = ''; }
+    if(screen === 'list'){ m.innerHTML = listHTML(); ft.hidden = true; fi.innerHTML = ''; }
+    setTitle();
+    window.scrollTo(0, 0);
+    /* r3: one enter in reading order, --stagger apart; the header joins on first load only; the footer rises last (never shown over an empty page) */
+    const shown = el => el && !el.hidden;
+    const parts = [!S.booted && $('#hdr'), ...(screen === 'offer' ? [$('#rail'), $('#formPane'), $('#letterPane')] : [m.firstElementChild]), ft].filter(shown);
+    if(opts.animate !== false) Motion.enter(parts); else if(!S.booted) Motion.enter([$('#hdr')]);
+    const firstLoad = !S.booted; S.booted = true;
+    /* the first load leaves focus at the top of the document (skip link first); only a screen change moves it to the h1 */
+    if(!opts.noFocus && !firstLoad){ const h = $('#pageH1'); if(h) h.focus({preventScroll:true}); }
+  };
+  /* M15: out (--d-fast fade), then the new view rises */
+  const m = $('#screen');
+  if(opts.animate && m.firstElementChild && Motion.ms('--d-fast')){ m.classList.add('hx-leave'); setTimeout(() => { m.classList.remove('hx-leave'); doGo(); }, Motion.ms('--d-fast')); }
+  else doGo();
+}
+/* r12 B2: from Preview, any chip (done or not) goes back to Edit, opens its section and focuses its first field */
+function jump(id){
+  const inPreview = document.body.classList.contains('view-letter');
+  if(inPreview) setLetterView(false, true);
+  const miss = missing(), first = miss.find(m => secOf(m.k) === id);
+  if(first){ focusField(first.k); return; }
+  const opened = ACC.isOpen(id) ? null : ACC.open(id, {how:'auto'});
+  const show = (el, anchor) => { Hifi.focusQuiet(el); Promise.resolve(opened).then(() => Hifi.reveal(el, {anchor})); };
+  if(inPreview){
+    const fe = $$(`#secp-${id} .field[data-f]`).find(x => x.getClientRects().length), k = fe && fe.dataset.f;
+    if(k && document.getElementById('f-' + k)){ focusField(k); return; }
+    const el = $(`#secp-${id} .acc-inner`).querySelector('input:checked, input, select, textarea, button, a[href]');
+    if(el){ show(el, $('#sec-' + id)); CHECK.current(id); return; }
+  }
+  show($('#sec-' + id + ' .acc-btn'), $('#sec-' + id)); CHECK.current(id);
+}
+
+document.addEventListener('click', e => {
+  const t = e.target.closest('button, a'); if(!t || t.closest('.demo')) return;
+  if(t.id === 'countBtn'){ const miss = missing(); if(miss.length) focusField(miss[0].k); else pressReview(); return; }
+  if(t.dataset.go){ e.preventDefault(); focusField(t.dataset.go); return; }
+  if(t.dataset.change){ e.preventDefault(); const k = t.dataset.change; S.sendErr = false; go('offer', {noFocus:true, animate:false}); focusField(k); return; }
+  if(t.id === 'bonusAdd'){ S.f.bonusOpen = true; onCommit('bonusOpen'); $('#f-bonus').focus(); return; }
+  if(t.id === 'bonusRemove'){ Object.assign(S.f, {bonusOpen:false, bonus:'', bonusRepay:false, bonusMonths:''}); ['bonus', 'bonusMonths'].forEach(k => $('#f-' + k).value = ''); $('#f-bonusRepay').checked = false; onCommit('bonusOpen'); $('#bonusAdd').focus(); say('Signing bonus removed.'); return; }
+  if(t.id === 'equityAdd'){ S.f.equityOpen = true; onCommit('equityOpen'); $('#f-equity').focus(); return; }
+  if(t.id === 'equityRemove'){ Object.assign(S.f, {equityOpen:false, equity:''}); $('#f-equity').value = ''; onCommit('equityOpen'); $('#equityAdd').focus(); say('Equity removed.'); return; }
+  const a = t.dataset.act; if(!a) return;
+  if(t.tagName === 'A') e.preventDefault();
+  if(a === 'review') pressReview();
+  if(a === 'retry') saveDraft();
+  if(a === 'to-list'){ S.errItems = null; go('list', {animate:true}); }
+  if(a === 'create'){ fresh(); go('offer', {animate:true}); }
+  if(a === 'open-draft'){ S.errItems = null; S.saveTextOnce = 'Saved ' + S.savedAt; go('offer', {animate:true}); }
+  if(a === 'edit'){ S.sendErr = false; go('offer', {animate:true}); }
+  if(a === 'send'){
+    const b = $('#sendBtn'); busy(b, true);
+    setTimeout(() => {
+      if(WF.sendFail){ busy(b, false); S.sendErr = true; $('#sendErrSlot').innerHTML = sendErrHTML(); setTitle(); $('#sendErr').focus(); }
+      else { S.sendErr = false; S.sent = true; go('sent', {animate:true}); }
+    }, 700);
+  }
+});
+document.addEventListener('focusin', e => {
+  if(S.screen !== 'offer') return;
+  if(e.target.closest && e.target.closest('.hx-form')){ S.lastFocusEl = e.target; S.snapEl = null; }
+  const k = e.target.name; if(k && k in S.f){ S.lastField = k; highlight(k); }
+  const sec = e.target.closest && e.target.closest('.acc'); if(sec && CHECK) CHECK.current(sec.dataset.sec);
+});
+/* r12 B1: the field's screen top is read the moment focus leaves it, or the switch is pressed, before focusing the
+   switch can scroll the page */
+const snapField = () => { const a = S.lastFocusEl; if(S.view === 'edit' && a && a.isConnected && a.getClientRects().length){ S.snapEl = a; S.snapTop = a.getBoundingClientRect().top; } };
+document.addEventListener('pointerdown', e => { if(e.target.closest && e.target.closest('#hxSwitch')) snapField(); }, true);
+document.addEventListener('focusout', e => { if(S.screen === 'offer' && e.target === S.lastFocusEl) snapField(); }, true);
+document.addEventListener('focusout', e => {
+  if(S.screen !== 'offer') return;
+  highlight(null);
+  /* validate on blur, never per keystroke: only a value that was typed and is wrong (an empty field waits for Review offer) */
+  const k = e.target.name;
+  if((k === 'email' || k === 'amount') && S.f[k].trim() && (k === 'email' ? !validEmail() : !validAmount())){ S.blurErr.add(k); renderErrors(); }
+});
+
+/* ===================== demo states (prototype chrome only) ===================== */
+const ALEX = {empType:'ft', first:'Alex', last:'Rivera', email:'alex.rivera@example.com', title:'Senior full-stack engineer', startDate:'2026-06-15',
+  reportsTo:'Jordan Lee', location:'Remote', state:'CA', payType:'Salary', amount:'150,000', bonusOpen:true, bonus:'10,000', bonusRepay:true, bonusMonths:'12',
+  payrollGroup:'US Salaried', duties:'software', expiry:'2026-06-01'};
+const PRIYA = {empType:'c', first:'Priya', last:'Shah', email:'priya.shah@example.com', title:'Product designer', startDate:'2026-07-01', endDate:'2026-12-31',
+  reportsTo:'Jordan Lee', location:'Hybrid', workplace:'ny', payType:'Hourly', amount:'95', expiry:'2026-06-20'};
+const PARTLY = {...ALEX, startDate:'', state:'', duties:''};
+const OT = {
+  'ot-150-ca': {location:'Remote', state:'CA', payType:'Salary', amount:'150,000'},
+  'ot-90-ca': {location:'Remote', state:'CA', payType:'Salary', amount:'90,000'},
+  'ot-60-ca': {location:'Remote', state:'CA', payType:'Salary', amount:'60,000'},
+  'ot-40h-ca': {location:'Remote', state:'CA', payType:'Hourly', amount:'40', payrollGroup:'US Hourly', bonusOpen:false, bonus:'', bonusRepay:false, bonusMonths:''},
+  'ot-65h-ca': {location:'Remote', state:'CA', payType:'Hourly', amount:'65', payrollGroup:'US Hourly', bonusOpen:false, bonus:'', bonusRepay:false, bonusMonths:''},
+  'ot-45-ny': {location:'Hybrid', state:'', workplace:'ny', payType:'Salary', amount:'45,000'},
+  'ot-30h-tx': {location:'Remote', state:'TX', payType:'Hourly', amount:'30', payrollGroup:'US Hourly', bonusOpen:false, bonus:'', bonusRepay:false, bonusMonths:''},
+  'ot-nostate': {location:'Remote', state:'', payType:'Salary', amount:'150,000'}
+};
+function load(vals, draft = true){
+  fresh(); Object.assign(S.f, vals); S.otBasis = basisKey(); S.otMode = S.f.duties ? ot().mode : ''; S.draft = draft; S.newOffer = !draft;
+  if(draft){ S.savedAt = md(TODAY) + ', 9:41 AM'; }
+}
+const DEMO_GROUPS = [
+  {label:'Alex (employee)', items:[['alex-empty', 'Empty'], ['alex-partly', 'Partly filled'], ['alex-errors', 'Invalid (pressed Review offer)'], ['alex-ready', 'Ready'], ['alex-back', 'Back to a draft'], ['alex-savefail', 'Saving fails'], ['alex-review', 'Review'], ['alex-sent', 'Sent']]},
+  {label:'Priya (contractor)', items:[['priya-ready', 'Ready'], ['priya-review', 'Review']]},
+  {label:'Overtime cases (Alex)', items:[['ot-150-ca', 'Salary $150,000 · remote, California'], ['ot-90-ca', 'Salary $90,000 · remote, California'], ['ot-60-ca', 'Salary $60,000 · remote, California'], ['ot-40h-ca', 'Hourly $40 · remote, California'], ['ot-65h-ca', 'Hourly $65 · remote, California'], ['ot-45-ny', 'Salary $45,000 · hybrid, New York office'], ['ot-30h-tx', 'Hourly $30 · remote, Texas'], ['ot-nostate', 'Salary $150,000 · remote, no state yet']]},
+  {label:'Out of scope', items:[['list', 'Offer letters list (stand-in)']]}
+].map(g => ({label:g.label, items:g.items.map(([id, label]) => ({id, label}))}));
+let DEMO;
+function preset(p, animate = true){
+  const A = {animate};
+  WF.saveFail = !!$('[data-tog="saveFail"]')?.checked;
+  if(p === 'alex-empty'){ fresh(); go('offer', A); }
+  else if(p === 'alex-partly'){ load(PARTLY); go('offer', A); }
+  else if(p === 'alex-errors'){ load({...PARTLY, email:'alex.rivera@example'}); go('offer', A); pressReview(); }
+  else if(p === 'alex-ready'){ load(ALEX); go('offer', A); }
+  else if(p === 'alex-review'){ load(ALEX); go('review', A); }
+  else if(p === 'alex-sent'){ load(ALEX); S.sent = true; go('sent', A); }
+  else if(p === 'alex-back'){ load(PARTLY); S.savedAt = 'May 22, 4:12 PM'; S.saveTextOnce = 'Saved May 22, 4:12 PM'; go('offer', A); }
+  else if(p === 'alex-savefail'){ load(PARTLY); WF.saveFail = true; const t = $('[data-tog="saveFail"]'); if(t) t.checked = true; S.failOnLoad = true; go('offer', A); }
+  else if(p === 'priya-ready'){ load(PRIYA); go('offer', A); }
+  else if(p === 'priya-review'){ load(PRIYA); go('review', A); }
+  else if(p === 'list'){ fresh(); go('list', A); }
+  else if(OT[p]){ load({...ALEX, duties:'', ...OT[p]}); go('offer', {noFocus:true, ...A}); focusField('duties'); }
+  if(DEMO) DEMO.mark(p);
+  const l = $('#lede'); if(l) l.textContent = ledeText();
+}
+window.preset = preset;  /* used by the capture script */
+
+Toggletip.init(document);
+Hifi.shell();
+DEMO = Demo.mount({groups: DEMO_GROUPS, note:'Prototype controls: jump between states.',
+  toggles:[{id:'saveFail', label:'Saving fails'}, {id:'sendFail', label:'Sending fails'}],
+  onPick: id => preset(id),
+  onToggle: (id, on) => { WF[id] = on; const l = $('#lede'); if(l) l.textContent = ledeText(); }});
+preset(new URLSearchParams(location.search).get('state') || 'alex-empty');
+</script>
+</body>
+</html>

@@ -1,0 +1,70 @@
+/* Bolto promo email headers (v1, v2). 600px email-safe width; every value from ../shared/tokens.css. */
+html, body, h1, h2, p, ul, ol, li, dl, dt, dd { margin: 0; padding: 0; }
+div, span, ul, li, a, svg { box-sizing: border-box; }
+body { background: var(--surface-sunk); font: var(--p2); color: var(--ink); -webkit-font-smoothing: antialiased; padding: var(--s12) var(--s4); }
+.email { max-width: 600px; margin: 0 auto; background: var(--canvas); border: 1px solid var(--line-2); border-radius: var(--r-lg); overflow: hidden; }
+
+.top { padding: var(--s8) var(--s8) 0; }
+.top img { display: block; height: 24px; width: auto; }   /* the B is 24 tall: clearspace 12 is inside the 32 padding */
+
+.hero { padding: var(--s12) var(--s8) var(--s8); }
+.hero h1 { font: var(--h4); letter-spacing: var(--track-tight); max-width: 480px; }
+.hero .sub { font: var(--p1); color: var(--ink-2); margin-top: var(--s4); max-width: 512px; }
+.btn { display: inline-flex; align-items: center; justify-content: center; height: var(--control-h); padding: 0 var(--s6); margin-top: var(--s8); border-radius: var(--r-md); background: var(--blue); color: var(--surface); font: var(--label); text-decoration: none; }
+.btn:hover { background: var(--blue-hover); }
+.btn:focus-visible { outline: var(--focus-width) solid var(--focus); outline-offset: var(--focus-offset); }
+
+/* the product crop */
+.visual { position: relative; margin: 0 var(--s8); height: 228px; border: 1px solid var(--line-2); border-radius: var(--r-lg); background: var(--canvas); overflow: hidden; }
+.ic { width: var(--icon); height: var(--icon); flex: none; display: block; }
+
+.rail { position: absolute; left: var(--s6); top: var(--s6); width: 176px; list-style: none; display: grid; gap: var(--s3); }
+.rail li { display: flex; align-items: center; gap: var(--s3); font: var(--p3); }
+.rail .left { margin-left: auto; font: var(--p4); color: var(--ink-2); }
+.ring { width: 20px; height: 20px; flex: none; display: block; overflow: visible; }
+.ring .fill { fill: var(--blue); }
+.ring .tick { fill: none; stroke: var(--surface); stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+.ring .track { fill: none; stroke: var(--line-field); stroke-width: 1.5; }
+.ring .arc { fill: none; stroke: var(--blue); stroke-width: 1.5; stroke-linecap: round; transform: rotate(-90deg); transform-origin: 10px 10px; }
+.ring .dash { fill: none; stroke: var(--line-field); stroke-width: 1.5; stroke-dasharray: 3 3; }
+
+.paper { position: absolute; top: var(--s6); width: 360px; padding: var(--s6); background: var(--surface); border-radius: var(--r-lg); box-shadow: var(--shadow-paper); font: var(--p4); }
+.v1 .paper { left: 232px; }
+.v2 .visual { height: 284px; }
+.v2 .paper { left: 312px; }
+.v2 .paper dl { grid-template-columns: 88px 1fr; }
+.paper .head { display: flex; justify-content: space-between; padding-bottom: var(--s3); border-bottom: 1px solid var(--line-1); }
+.paper .co { font: var(--label); }
+.paper .date { color: var(--ink-2); }
+.paper .dear { margin: var(--s3) 0 var(--s2); font: var(--p3); }
+.paper dl { display: grid; grid-template-columns: 96px 1fr; }
+.paper dt, .paper dd { padding: var(--s2) 0; border-top: 1px solid var(--line-1); }
+.paper dt { color: var(--ink-2); }
+.gap { display: inline-block; padding: 0 var(--s1); border: 1px dashed var(--line-field); border-radius: var(--r-sm); color: var(--ink-2); background: var(--canvas); }
+
+/* v2: Start from card */
+.start { position: absolute; left: var(--s6); top: var(--s6); width: 264px; padding: var(--s4); background: var(--surface); border: 1px solid var(--line-2); border-radius: var(--r-lg); }
+.start h2 { font: var(--label); }
+.field { display: flex; align-items: center; gap: var(--s2); height: var(--control-h); margin-top: var(--s3); padding: 0 var(--s3); border: 1px solid var(--line-field); border-radius: var(--r-md); font: var(--p3); color: var(--ink); }
+.field .ic { color: var(--ink-2); }
+.cand { display: flex; align-items: center; gap: var(--s3); margin-top: var(--s2); padding: var(--s3); border-radius: var(--r-md); background: var(--surface-tint); }
+.av { width: 32px; height: 32px; flex: none; border-radius: var(--r-pill); background: var(--blue-pill); display: grid; place-items: center; font: var(--p4); font-weight: 500; }
+.cand .n { display: block; font: var(--label); }
+.cand .r { display: block; font: var(--p4); color: var(--ink-2); }
+.tag { display: inline-flex; align-items: center; gap: var(--s1); margin-top: var(--s1); padding: 0 var(--s2) 0 var(--s1); border-radius: var(--r-pill); background: var(--success-bg); font: var(--p4); font-weight: 500; }
+.tag .ic { width: 14px; height: 14px; color: var(--success); }
+.status { display: flex; margin-top: var(--s3); align-items: center; gap: var(--s2); font: var(--p3); }
+
+/* benefits */
+.benefits { margin: var(--s8) var(--s8) 0; padding: var(--s2) var(--s6); background: var(--surface); border: 1px solid var(--line-2); border-radius: var(--r-lg); list-style: none; }
+.benefits li { font: var(--p2); color: var(--ink-2); padding: var(--s4) 0; }
+.benefits li + li { border-top: 1px solid var(--line-1); }
+.benefits strong { font-weight: 500; color: var(--ink); }
+
+.foot { display: flex; align-items: center; gap: var(--s3); margin-top: var(--s8); padding: var(--s6) var(--s8) var(--s8); border-top: 1px solid var(--line-2); font: var(--p4); color: var(--ink-2); }
+.foot img { display: block; height: 16px; width: auto; }
+
+.note { display: flex; gap: var(--s2); margin-top: var(--s3); padding: var(--s3); border-radius: var(--r-md); background: var(--canvas); font: var(--p3); color: var(--ink-2); }
+.note .ic { flex: none; color: var(--ink-2); }
+.status .ic { width: 20px; height: 20px; flex: none; color: var(--blue); }
+.field { overflow: hidden; white-space: nowrap; }

@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>Bolto promo email, v2</title>
+<link rel="stylesheet" href="../shared/tokens.css">
+<link rel="stylesheet" href="promo.css">
+</head>
+<body>
+<main class="email v2">
+  <div class="top"><img src="../shared/brand/full-ink.svg" alt="Bolto"></div>
+
+  <div class="hero">
+    <h1>Start offers from what you already have</h1>
+    <p class="sub">Paste a job link or your notes. Bolto fills in the offer and shows where each value came from. You still decide pay, worker type and overtime.</p>
+    <a class="btn" href="../v2/index.html">Create offer letter</a>
+  </div>
+
+  <div class="visual" role="img" aria-label="The offer page: a Start from card with a pasted job link and notes, and the line Filled, 3 need you, beside the letter.">
+    <div class="start">
+      <h2>Start from</h2>
+      <div class="field"><span data-ic="link"></span>jobs.example.com/4821</div>
+      <div class="note"><span data-ic="sticky-note"></span><span>"Priya Shah, contractor through Dec 31. $95/hr. Starts Jul 1."</span></div>
+      <p class="status"><span data-ic="circle-check"></span>Filled · 3 need you</p>
+    </div>
+    <div class="paper">
+      <div class="head"><span class="co">Acme Co.</span></div>
+      <p class="dear">Dear Priya,</p>
+      <dl>
+        <dt>Start date</dt><dd>July 1, 2026</dd>
+        <dt>Work location</dt><dd>Hybrid</dd>
+        <dt>Pay</dt><dd><span class="gap">pay</span></dd>
+        <dt>Offer expires</dt><dd>June 20, 2026</dd>
+      </dl>
+    </div>
+  </div>
+
+  <ul class="benefits">
+    <li><strong>Start from what you have.</strong> Paste a job link, notes or a file and the offer fills in beside the letter. Anything you set first stays yours, and "Undo fill" clears only what Bolto filled.</li>
+    <li><strong>See where each value came from.</strong> Each section says whether it came from the job posting, your notes or your settings. Anything Bolto read from your notes shows the words it came from.</li>
+    <li><strong>You make the calls.</strong> Bolto leaves worker type, remote state and overtime for you to answer, and Review shows one sentence to approve before the offer goes out.</li>
+  </ul>
+
+  <footer class="foot"><img src="../shared/brand/wordmark-ink.svg" alt="Bolto"><span>You're getting this because your team uses Bolto.</span></footer>
+</main>
+<script src="../shared/icons/icons.js"></script>
+<script>document.querySelectorAll('[data-ic]').forEach(function(el){ el.outerHTML = Icons.svg(el.dataset.ic); });</script>
+</body>
+</html>
