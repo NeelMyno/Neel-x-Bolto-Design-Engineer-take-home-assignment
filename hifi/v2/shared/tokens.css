@@ -1,0 +1,109 @@
+/* Bolto hi-fi tokens: the brand-lock in code.
+   Source: Bolto's 2026 brand kit, with contrast fixes. Every colour, size, curve and duration used by
+   the hi-fi pages comes from this file. A literal hex, px duration or cubic-bezier anywhere else
+   is a defect (checked by tools/hifi_tokens_check.py). */
+
+@import url("https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600&display=swap");
+
+:root {
+  /* Canvas and surfaces (kit, kept) */
+  --canvas: #F4F4F1;          /* surface/1 */
+  --surface: #FFFFFF;         /* background */
+  --surface-tint: #E8EFFE;    /* surface/4 */
+  --surface-sunk: #EDEDE9;    /* derived: canvas one step down, for the segmented track */
+
+  /* Ink (kit, kept; tertiary never used for text, P21) */
+  --ink: #1A1A1A;             /* 15.8:1 on canvas */
+  --ink-2: #595961;           /* 6.3:1 on canvas, 6.9:1 on white */
+  --ink-3: #9D9D9D;           /* decorative rules only */
+
+  /* Lines */
+  --line-1: #EDEDED;          /* outline/1: hairlines inside cards */
+  --line-2: #D3D3D3;          /* outline/2: card edges on canvas */
+  --line-field: #8A8A8A;      /* P4: field and secondary-button border, 3.45:1 on white */
+
+  /* Blue leads (kit idle; P8 hover/pressed; P16 link) */
+  --blue: #2966FF;            /* white label 4.73:1 */
+  --blue-hover: #1F55E0;      /* white label 6.12:1 */
+  --blue-press: #1A47BD;      /* white label 7.84:1 */
+  --blue-pill: #CCDBFF;       /* info/pill-background */
+  --link: #1553D6;            /* 6.48 white, 5.88 canvas, 5.62 tint */
+
+  /* Status: hue only on icons and fills, text stays ink (P13) */
+  --success: #1B873F;   --success-bg: #DDFDCF;
+  --warning: #C25E00;   --warning-bg: #FDEEE0;
+  --error:   #C42B1C;   --error-bg:   #F8E3E0;   /* error text allowed: 5.66 white, 4.60 on bg */
+  --info:    #1553D6;   --info-bg:    #E8EFFE;
+
+  /* Focus (P7): one ring everywhere */
+  --focus: #2966FF;
+  --focus-width: 2px;
+  --focus-offset: 2px;
+
+  /* Type: Inter as the Aeonik stand-in (brief p4). Scale exactly as the kit. */
+  --font: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --h4: 400 40px/44px var(--font);      /* page headlines */
+  --h6: 400 24px/32px var(--font);      /* panel and section titles */
+  --p1: 400 20px/26px var(--font);      /* lead */
+  --p2: 400 16px/22px var(--font);      /* body, long text, the letter */
+  --p3: 400 14px/20px var(--font);      /* default UI text, inputs */
+  --label: 500 14px/20px var(--font);   /* buttons, labels, emphasis */
+  --p4: 400 12px/16px var(--font);      /* tags, help, captions */
+  --track-tight: -0.02em;               /* kit: slightly tight on large headlines */
+
+  /* Space: kit 4px base; 48 and 64 are layout-only extensions */
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s6: 24px; --s8: 32px; --s12: 48px; --s16: 64px;
+
+  /* Radii (kit) */
+  --r-sm: 8px; --r-md: 10px; --r-lg: 12px; --r-xl: 24px; --r-pill: 999px;
+
+  /* Sizes */
+  --control-h: 44px;          /* P10: buttons, fields, radio cards */
+  --control-h-sm: 32px;       /* segmented options, small buttons */
+  --icon: 20px;               /* Lucide at 1.25px stroke (F5) */
+  --icon-stroke: 1.25;
+
+  /* Elevation: hairlines first; shadow only for the letter paper and floating layers */
+  --shadow-paper: 0 1px 2px rgba(26, 26, 26, 0.04), 0 12px 32px -12px rgba(26, 26, 26, 0.10);
+  --shadow-pop: 0 2px 4px rgba(26, 26, 26, 0.06), 0 16px 40px -8px rgba(26, 26, 26, 0.16);
+
+  /* Motion (spec section 6). Two curves move things; pop is for ticks only. */
+  --ease-enter: cubic-bezier(0.2, 0, 0, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --ease-pop: cubic-bezier(0.34, 1.4, 0.64, 1);
+  --ease-linear: linear;
+  --d-micro: 80ms;            /* hover colour, press */
+  --d-fast: 140ms;            /* small fades, toggletip, chevron colour */
+  --d-base: 200ms;            /* chevron turn, check draw, segmented text */
+  --d-slow: 280ms;            /* accordion open, segmented thumb, rise */
+  --d-slower: 400ms;          /* page entry, sent check */
+  --d-glow: 900ms;            /* letter value highlight fade */
+  --stagger: 40ms;
+  --rise: 8px;
+  --press: 0.97;
+  --press-icon: 0.92;
+  --press-wide: 0.985;
+  --disabled-opacity: 0.4;
+
+  /* Added by the v1 hi-fi build (2026-11-01): durations the spec's motion score (17 §6) names exactly
+     that the set above lacked. Each line names the M-row it serves. */
+  --d-none: 0s;               /* reduced motion: instant */
+  --d-delay: 60ms;            /* M2: content fade-in waits for the rows to start */
+  --d-fade-out: 120ms;        /* M2: content fades out first */
+  --d-tick: 160ms;            /* M11: checkbox tick draw */
+  --d-tip-out: 90ms;          /* M13: toggletip close */
+  --d-close: 240ms;           /* M2: accordion close; M22 */
+  --d-ring: 260ms;            /* M4: rail ring arc */
+  --d-sweep: 300ms;           /* M20 (v2): fill tint sweep */
+  --d-page: 380ms;            /* M1, M15: page parts rise */
+  --d-busy-delay: 150ms;      /* M10, M20: spinner appears only after this */
+  --d-busy-hold: 400ms;       /* M20: a shown spinner stays at least this long */
+  --d-hover-intent: 400ms;    /* toggletip opens on mouse hover after this (17 §5) */
+  --stagger-fill: 30ms;       /* M20 (v2): fields fill 30ms apart */
+  --stagger-close: 80ms;      /* M20 (v2): finished sections close 80ms apart */
+  --rise-sm: 4px;             /* M5, M19: small text swap travel */
+  --nudge: 2px;               /* M18: send icon hover */
+  --pop-from: 0.8;            /* M3: status pop */
+  --tip-from: 0.96;           /* M13: toggletip scale */
+  --dot-from: 0.5;            /* M11: radio dot */
+}

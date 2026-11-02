@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>New offer · Bolto</title>
-<!-- Bolto offer flow, v1: the employer types everything in. Shared components: ../shared/. -->
-<link rel="icon" href="../shared/brand/brandmark-ink.svg">
-<link rel="stylesheet" href="../shared/tokens.css">
-<link rel="stylesheet" href="../shared/hifi.css">
+<!-- Bolto offer flow, v1: the employer types everything in. Shared components: shared/. -->
+<link rel="icon" href="shared/brand/brandmark-ink.svg">
+<link rel="stylesheet" href="shared/tokens.css">
+<link rel="stylesheet" href="shared/hifi.css">
 <style>
 /* Page-level overrides (tokens only). The floor bar's fill is a measurement, not an action, so it's neutral, not Bolto Blue. */
 .floor-fill { background: var(--ink-2); }
@@ -28,7 +28,7 @@
 <a class="sr" href="#screen">Skip to content</a>
 <header class="hx-header" id="hdr">
   <div class="hx-header-in">
-    <a class="hx-logo" href="#" data-act="to-list" aria-label="Bolto, offer letters"><img class="full" src="../shared/brand/full-ink.svg" alt=""><img class="mark" src="../shared/brand/brandmark-ink.svg" alt=""></a>
+    <a class="hx-logo" href="#" data-act="to-list" aria-label="Bolto, offer letters"><img class="full" src="shared/brand/full-ink.svg" alt=""><img class="mark" src="shared/brand/brandmark-ink.svg" alt=""></a>
     <nav class="hx-crumbs" aria-label="Breadcrumb" id="crumbs"></nav>
     <div class="hx-save" id="saveState"></div>
   </div>
@@ -37,8 +37,8 @@
 <footer class="hx-footer" id="footer" hidden><div class="hx-footer-in" id="footerIn"></div></footer>
 <div id="hx-live" class="sr" aria-live="polite"></div>
 
-<script src="../shared/icons/icons.js"></script>
-<script src="../shared/hifi.js"></script>
+<script src="shared/icons/icons.js"></script>
+<script src="shared/hifi.js"></script>
 <script>
 'use strict';
 const {$, $$, esc, Motion, say, Ring, Accordion, Checklist, Toggletip, Segmented, busy, Demo, SaveMark} = Hifi;
