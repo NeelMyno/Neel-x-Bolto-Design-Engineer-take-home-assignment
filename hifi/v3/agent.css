@@ -29,8 +29,11 @@ body.ag-mode.view-letter .ag-pane { display: none; }
   body.ag-mode .hx-body { padding-bottom: var(--s6); }
   .ag-panel { flex: 1 1 auto; min-height: 0; overflow: hidden; }
   .ag-trackw { position: relative; } /* holds the top fade; on phones the sticky rule already does */
-  .ag-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+  .ag-scroll { position: relative; flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; } /* relative: screen-reader text inside stays inside, so it can't stretch the page */
+  body.ag-mode .lt-scroll { overscroll-behavior: contain; }
 }
+/* the chat and the letter scroll, the page never does. Below this height the two panes can't both fit, so the page stays free to scroll */
+@media (min-width: 1024px) and (min-height: 560px) { html:has(body.ag-mode), body.ag-mode { overflow: hidden; } }
 @media (max-width: 1023.98px) {
   body.ag-mode .hx-body { padding-bottom: 0; }
   /* clip, not hidden: no scroll container, so the tracker and composer still stick; the square corners of both stay inside the round box */
@@ -119,9 +122,13 @@ body.ag-mode.view-letter .ag-pane { display: none; }
 @keyframes ag-rise { from { opacity: 0; transform: translateY(var(--rise)); } }
 
 /* ---- replies ---- */
-.ag-me { display: flex; justify-content: flex-end; }
+.ag-me { display: flex; flex-direction: column; align-items: flex-end; }
 .ag-bubble { background: var(--surface-tint); color: var(--ink); border-radius: var(--r-lg); padding: var(--s2) var(--s3); max-width: 80%; overflow-wrap: anywhere; font: var(--p3); }
-.ag-me.is-morph { position: relative; align-items: flex-start; }
+.ag-me.is-morph { position: relative; }
+/* Change under a reply: a quiet way back, held in the layout from the start so nothing below it moves when it fades in */
+.ag-again { margin-top: var(--s1); font: var(--p4); transition: opacity var(--d-fast) var(--ease-enter); }
+.ag-again.is-off { display: none; }
+.ag-me.is-morph .ag-again, body.ag-working .ag-again { opacity: 0; pointer-events: none; }
 .ag-me.is-morph > .ag-row, .ag-me.is-morph > .ag-role, .ag-me.is-morph > .ag-chip { position: absolute; right: 0; top: 0; flex: none; pointer-events: none; will-change: transform, clip-path; }
 .ag-morph-real { position: relative; z-index: 1; }
 .ag-morph-real.is-slide { background: none; }
@@ -375,15 +382,18 @@ body.ag-mode .demo.is-flow { position: fixed; left: var(--s4); bottom: var(--s4)
 #rvm { position: fixed; inset: 0; z-index: 60; }
 #rvm.is-closing { pointer-events: none; }
 .rvm-scrim { position: absolute; inset: 0; background: var(--scrim); }
-.rvm-box { position: absolute; left: 50%; top: var(--s6); bottom: var(--s6); translate: -50% 0; width: calc(var(--rvm-w, var(--ag-col)) + var(--s8) * 2 + var(--rvm-sb, 0px)); max-width: calc(100vw - var(--s8)); display: flex; flex-direction: column; background: var(--canvas); border-radius: var(--r-xl); overflow: hidden; box-shadow: var(--shadow-pop); }
+.rvm-box { position: absolute; left: 50%; top: var(--s6); bottom: var(--s6); translate: -50% 0; width: var(--rvm-w); max-width: calc(100vw - var(--s8) * 2); display: flex; flex-direction: column; background: var(--canvas); border-radius: var(--r-xl); overflow: hidden; box-shadow: var(--shadow-pop); }
 .rvm-head { flex: none; display: flex; align-items: center; justify-content: space-between; gap: var(--s4); padding: var(--s3) var(--s4) var(--s3) var(--s8); background: var(--surface); border-bottom: 1px solid var(--line-2); }
 .rvm-title { margin: 0; font: var(--label); }
 .rvm-x { width: var(--control-h-sm); height: var(--control-h-sm); display: grid; place-items: center; border: 0; border-radius: var(--r-sm); background: none; color: var(--ink-2); cursor: pointer; transition: background-color var(--d-micro) var(--ease-enter); }
 .rvm-x .ic { width: 20px; height: 20px; }
 .rvm-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
 .rvm-scroll:focus-visible { outline: var(--focus-width) solid var(--focus); outline-offset: calc(var(--focus-width) * -1); }
-.rvm-in { padding: var(--s6) var(--s8); }
-.rvm-mail { margin-top: var(--s4); }
+.rvm-in { padding: var(--s6) var(--s8); display: grid; grid-template-columns: minmax(0, 1fr) var(--rvm-side); gap: var(--s8); align-items: start; }
+/* the letter is what scrolls; what goes with it stays beside it */
+.rvm-side { position: sticky; top: var(--s6); display: grid; gap: var(--s4); max-height: calc(var(--rvm-view, 100vh) - var(--s6) * 2); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+.rvm-side .attach { margin-top: 0; }
+.rvm-mail { margin: 0; }
 .rvm-mail h3 { margin-top: 0; }
 .rvm-foot { position: relative; flex: none; display: grid; gap: var(--s3); padding: var(--s4) var(--s8); background: var(--surface); border-top: 1px solid var(--line-2); }
 .rvm-prog { position: absolute; left: 0; right: 0; top: calc(var(--ag-prog-h) * -1); height: var(--ag-prog-h); overflow: hidden; }
@@ -410,12 +420,12 @@ body.ag-mode .demo.is-flow { position: fixed; left: var(--s4); bottom: var(--s4)
 .btn-send.is-locked .ic-send { opacity: 0; transform: translateX(calc(var(--s2) * -1)); }
 .rvm-foot .btn-send.is-locked .label { transform: translateX(calc((var(--icon) + var(--s2)) / 2)); } /* the hidden icon keeps its space so the button never changes width; the label slides to true centre */
 #rvm-err-w .ag-err { font: var(--p3); }
-.rvm-fly { position: absolute; left: 0; top: 0; z-index: 2; pointer-events: none; will-change: transform, clip-path; }
 @media (hover: hover) and (pointer: fine) { .rvm-x:hover { background: var(--canvas); } }
 @media (max-width: 1023.98px) {
   .rvm-box { left: 0; right: 0; top: 0; bottom: 0; translate: none; width: auto; max-width: none; border-radius: 0; }
   .rvm-head { padding-left: var(--s4); }
-  .rvm-in { padding: var(--s4); }
+  .rvm-in { padding: var(--s4); display: block; }
+  .rvm-side { position: static; margin-top: var(--s4); max-height: none; overflow: visible; }
   .rvm-foot { padding: var(--s3) var(--s4); }
 }
 @media (prefers-reduced-motion: reduce) {

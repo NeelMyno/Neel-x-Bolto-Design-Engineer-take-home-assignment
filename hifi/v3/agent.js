@@ -154,6 +154,8 @@ const scroller = () => wide() ? $('.ag-scroll') : null;
 const snapshot = () => JSON.stringify({f:S.f, src:S.src, conf:S.conf, prop:S.prop, typed:S.typed, pg:S.pgOverride, ob:S.otBasis, om:S.otMode, cand:S.cand, posting:S.posting, style:S.style, picked:ag().picked, role:ag().role, extras:ag().extrasDone, skip:[...ag().skip]});
 function restore(j){ const o = JSON.parse(j), A = ag(); Object.assign(S, {f:o.f, src:o.src, conf:o.conf, prop:o.prop, typed:o.typed, pgOverride:o.pg, otBasis:o.ob, otMode:o.om, cand:o.cand, posting:o.posting, style:o.style});
   if(!o.picked && S.bar) showBar(false); A.picked = o.picked; A.role = o.role; A.extrasDone = o.extras; A.skip = new Set(o.skip || []); syncStyle(); refresh(null, true); renderTrack(); }
+/* the tabs above the letter are one more way to answer the same question, so the summary and an open question move with them */
+function onStyle(v){ const A = ag(), o = A.open; if(v === S.style) return; pushUndo(snapshot()); S.style = v; updateLetter(); saveDraft(); if(!o) return; if(o.id === 'review') refreshReview(); else if(o.id === 'style'){ closeOpen(); next(); } else if(o.id === 'list'){ const r = o.el.querySelector('[data-ag="field:style"] .ag-row-r'); if(r) r.textContent = v; } }
 function syncStyle(){ const r = $(`input[name=style][value="${S.style}"]`); if(r){ r.checked = true; const sg = r.closest('.seg'); if(sg) Segmented.sync(sg, true); } updateLetter(); }
 function set(k, v){ const prev = S.f.empType; S.f[k] = v; if(!S.src[k]) S.typed[k] = true; S.lastField = k; if(typeof v !== 'boolean') markFresh(k); onCommit(k, prev); renderTrack(); }
 /* no name yet: one set of words for every sentence that would have used it */
@@ -167,14 +169,16 @@ const rangeText = p => `${money(p.min)} to ${money(p.max)} ${p.unit === 'Hourly'
 const saved = () => !WF.saveFail && S.save !== 'failed' && !!S.savedAt;
 const saveBroken = () => WF.saveFail || S.save === 'failed';
 const unitWord = () => S.f.payType === 'Hourly' ? 'an hour' : S.f.payType === 'Salary' ? 'a year' : '';
-const payText = () => S.f.amount ? `${/^\$/.test(S.f.amount) ? '' : '$'}${S.f.amount.trim()}${unitWord() ? ' ' + unitWord() : ''}` : '';
+/* one way to write an amount: the letter's. What was typed stays in S.f */
+const cash = v => { const n = num(v); return n === null ? `$${String(v).trim().replace(/^\$/, '')}` : money(n); };
+const payText = () => S.f.amount ? `${cash(S.f.amount)}${unitWord() ? ' ' + unitWord() : ''}` : '';
 const sdt = d => { if(!d) return ''; const [y, m, a] = d.split('-').map(Number); return new Date(y, m - 1, a).toLocaleDateString('en-US', {month:'long', day:'numeric'}); };
 const shortDt = d => { if(!d) return ''; const [y, m, a] = d.split('-').map(Number); return new Date(y, m - 1, a).toLocaleDateString('en-US', {month:'short', day:'numeric'}); };
 const EMPW = {ft:'Full-time W-2', pt:'Part-time W-2', c:'Contractor 1099'};
 function disp(k, v){ if(v === '' || v == null || v === false) return 'not set';
   if(['startDate', 'endDate', 'expiry'].includes(k)) return sdt(v);
   if(k === 'empType') return EMPW[v] || v; if(k === 'state') return stateName(v) || v; if(k === 'workplace') return (OFFICES.find(o => o.id === v) || {}).name || v;
-  if(k === 'amount') return `$${String(v).replace(/^\$/, '')}${unitWord() ? ' ' + unitWord() : ''}`; if(k === 'bonus') return `$${String(v).replace(/^\$/, '')}`;
+  if(k === 'amount') return `${cash(v)}${unitWord() ? ' ' + unitWord() : ''}`; if(k === 'bonus') return cash(v);
   if(k === 'duties') return DUTIES[v] || v; if(k === 'sender') return sender().name; if(v === true) return 'Yes'; return String(v); }
 const LABEL = k => ({empType:'Worker type', first:'First name', last:'Last name', email:'Email', title:'Job title', startDate:'Start date', endDate:'Contract end date', reportsTo:isCon() ? 'Point of contact' : 'Reports to', location:'Where they work', state:'Work state', workplace:'Workplace', payType:'Salary or hourly', amount:'Pay', bonus:'Signing bonus', equity:'Equity', expiry:'Offer expires', duties:'Overtime', payrollGroup:'Payroll group', invite:'Invite to Bolto', style:'Letter style', note:'Personal note', department:'Department', bonusMonths:'Repayment months', sender:'From'}[k] || k);
 
@@ -190,7 +194,7 @@ function plan(){
   if(need(['location']).length) return {id:'loc'};
   if(need(['state']).length) return {id:'state'};
   if(need(['workplace']).length) return {id:'office'};
-  if(need(BY.pay).length) return {id:'pay', fields:need(BY.pay).concat(need(['amount']).length ? [] : ['amount']).filter((v, i, a) => a.indexOf(v) === i)};
+  if(need(BY.pay).length) return {id:'pay', fields:BY.pay}; /* both, always: the amount's own error can say "choose Salary", so Salary has to be on the card */
   if(!A.extrasDone && !S.f.bonusOpen && !S.f.equityOpen) return {id:'extras'};
   if(need(BY.bonus).length) return {id:'bonus', fields:['bonus', 'bonusRepay', 'bonusMonths']};
   if(need(BY.equity).length) return {id:'equity', fields:['equity']};
@@ -244,13 +248,13 @@ function question0(q){
     case 'who': return {text:"Who's the offer for?", html:card(q), ph:'Or type a name and email', help:['skip']};
     case 'type': { const pt = S.posting && S.posting.type;
       return {text:`What kind of hire is ${who() || 'this'}?`, html:`${pt ? `<p class="ag-quiet">The posting says ${h(pt)}.</p>` : ''}<div class="ag-rows">${[['ft', 'Full-time', 'W-2', 'briefcase'], ['pt', 'Part-time', 'W-2', 'clock-3'], ['c', 'Contractor', '1099', 'file-pen-line']].map(([v, l, t, i]) => row('ans:type:' + v, l, {icon:i, right:t, keep:true, lab:`${l} ${t}`, cur:cur(f.empType === v)})).join('')}</div>`, ph:'Or type your answer', count:3, help:['w2', 'skip']}; }
-    case 'job': return {text:"What's the job?", html:card(q), ph:'Or type a date', help:['skip']};
+    case 'job': return {text:"What's the job?", html:card(q), ph:q.fields.some(k => k === 'startDate' || k === 'endDate') ? 'Or type a date' : q.fields.join() === 'title' ? 'Or type the job title' : 'Or type your answer', help:['skip']};
     case 'loc': return {text:`Where will ${they()} work?`, html:`<div class="ag-chips">${['Remote', 'Hybrid', 'On-site'].map(v => chip('ans:loc:' + v, v, cur(f.location === v))).join('')}</div>`, ph:'Or type your answer', count:3, help:['skip']};
-    case 'state': return {text:`Which state will ${they()} work from?`, html:`<div class="ag-state"><label class="ag-lab" for="ag-state-q">Work state</label><input class="input" id="ag-state-q" autocomplete="off" placeholder="Type to filter"><div class="ag-rows" id="ag-state-l">${stateRows('')}</div></div>`, ph:'Or type the state', help:['why-state', 'skip']};
+    case 'state': return {text:`Which state will ${they()} work from?`, html:`<div class="ag-state"><label class="ag-lab" for="ag-state-q">Work state</label><input class="input" id="ag-state-q" autocomplete="off" placeholder="Type to filter"><div class="ag-rows" id="ag-state-l">${stateRows('', q.change ? f.state : '')}</div></div>`, ph:'Or type the state', help:['why-state', 'skip']};
     case 'office': return {text:'Which office?', html:`<div class="ag-chips">${OFFICES.map(o => chip('ans:office:' + o.id, o.name, cur(f.workplace === o.id))).join('')}</div>`, ph:'Or type your answer', help:['skip']};
     case 'pay': { const p = S.posting;
       return {text:"What's the pay?", html:card(q, p && p.min ? `<p class="ag-quiet">Posted range: ${rangeText(p)}</p>` : ''), ph:f.payType === 'Hourly' || (p && p.unit === 'Hourly') ? 'Or type it, like $95 an hour' : 'Or type it, like 150k a year', help:['should-pay', 'skip']}; }
-    case 'extras': return {text:'Is there a signing bonus or equity?', html:`<div class="ag-chips">${[['bonus', 'Signing bonus'], ['equity', 'Equity'], ['both', 'Both'], ['none', 'Neither']].map(([v, l]) => chip('ans:extras:' + v, l)).join('')}</div>`, ph:'Or type your answer', count:4, help:[]};
+    case 'extras': { const now = f.bonusOpen && f.equityOpen ? 'both' : f.bonusOpen ? 'bonus' : f.equityOpen ? 'equity' : 'none'; return {text:'Is there a signing bonus or equity?', html:`<div class="ag-chips">${[['bonus', 'Signing bonus'], ['equity', 'Equity'], ['both', 'Both'], ['none', 'Neither']].map(([v, l]) => chip('ans:extras:' + v, l, cur(now === v))).join('')}</div>`, ph:'Or type your answer', count:4, help:q.change ? ['skip'] : []}; }
     case 'bonus': return {text:'Tell me about the signing bonus.', html:card(q), ph:'Or type the amount', help:['repay', 'skip']};
     case 'equity': return {text:'How should the equity read in the letter?', html:card(q), ph:'Or type your answer', help:['skip']};
     case 'expiry': return {text:'When should the offer expire?', html:card(q), ph:'Or type a date', help:['skip']};
@@ -258,7 +262,10 @@ function question0(q){
     case 'pg': return {text:'Which payroll group?', html:`<div class="ag-chips">${['US Salaried', 'US Hourly'].map(v => chip('ans:pg:' + v, v, cur(f.payrollGroup === v))).join('')}</div>`, ph:'', help:[]};
     case 'invite': return {text:`Invite ${w} to Bolto after they sign?`, html:`<div class="ag-chips">${[['yes', 'Yes', f.invite], ['no', 'No', !f.invite]].map(([v, l, c]) => chip('ans:invite:' + v, l, cur(c))).join('')}</div>`, ph:'', help:[]};
     case 'style': return {text:'Which letter style?', html:`<div class="ag-chips">${['Standard', 'Concise'].map(v => chip('ans:style:' + v, v, cur(S.style === v))).join('')}</div>`, ph:'', help:[]};
-    case 'ot': { const o = ot(), hr = o.mode === 'hourly', opts = hr ? [['software', 'Yes'], ['none', 'No'], ['unsure', "I'm not sure"]] : (o.opts || []).map(v => [v, DUTIES[v]]);
+    case 'ot': { const o = ot(), hr = o.mode === 'hourly';
+      if(o.mode === 'auto') return {text:`${theyGet('gets', 'get')} overtime pay.`, html:`<p class="ag-quiet">${h(o.short || o.why)}</p><div class="ag-chips">${chip('field:amount', 'Change the pay')}</div>`, ph:'Or ask what exempt means', count:1, help:['exempt', 'skip']};
+      if(!q.walk){ const v = otFinal(); return {text:`${doesThey()} get overtime pay?`, html:`<div class="ag-chips">${chip('ans:ot:none', 'Yes', cur(v === false))}${chip('ans:ot:exempt', 'No', cur(v === true))}${chip('ans:ot:walk', "I'm not sure")}</div><p class="ag-quiet">A job title or posting doesn't decide this.</p>`, ph:'Or ask what exempt means', count:3, help:['exempt', 'skip']}; }
+      const opts = hr ? [['software', 'Yes'], ['none', 'No'], ['unsure', "I'm not sure"]] : (o.opts || []).map(v => [v, DUTIES[v]]);
       const postLine = S.posting && S.posting.duties ? `<p class="ag-quiet">The posting says: ${h(S.posting.duties)}</p>` : '';
       return {text:hr ? `${doesThey()} work as a software engineer, programmer or systems analyst?` : `What is ${poss()}main work?`, html:`${postLine}<div class="ag-rows">${opts.map(([v, l]) => row('ans:ot:' + v, l, {cur:cur(f.duties === v)})).join('')}</div><p class="ag-quiet">A job title or posting doesn't decide this.</p>${o.hint ? `<p class="ag-quiet">${h(o.hint)}</p>` : ''}`, ph:'Or ask what exempt means', count:opts.length, help:['exempt', 'skip']}; }
     case 'conf': { const c = S.conf[q.k], val = v => c.pair ? `$${v.amount} ${v.payType === 'Hourly' ? 'an hour' : 'a year'}` : disp(q.k, v);
@@ -267,8 +274,8 @@ function question0(q){
       return {text:`Your notes give the pay as ${p.label}. Use it?`, html:`<div class="ag-chips">${chip('prop:use', 'Use ' + p.label)}${chip('prop:other', 'Enter a different amount')}</div><p class="ag-quiet">Quoted from your notes: "${h(p.quote)}"</p>`, ph:'Or type the amount', count:2, help:[]}; }
   }
 }
-function stateRows(qs){ const t = qs.trim().toLowerCase(), m = STATES.filter(([c, n]) => !t || n.toLowerCase().includes(t) || c.toLowerCase() === t), show = m;
-  return show.length ? show.map(([c, n]) => row('ans:state:' + c, n)).join('') : `<p class="ag-quiet">No state matches "${h(qs)}".</p>`; }
+function stateRows(qs, now = ''){ const t = qs.trim().toLowerCase(), m = STATES.filter(([c, n]) => !t || n.toLowerCase().includes(t) || c.toLowerCase() === t), show = m;
+  return show.length ? show.map(([c, n]) => row('ans:state:' + c, n, {cur:c === now})).join('') : `<p class="ag-quiet">No state matches "${h(qs)}".</p>`; }
 
 /* ===================== ask, close, continue ===================== */
 const HELP = {w2:["What's W-2 and 1099?", 'say:what is w-2 and 1099'], skip:['Skip for now', 'skip'], keepit:['Keep as it is', 'keepit'], 'why-state':['Why do you need this?', 'say:why do you need the state'], 'should-pay':['What should I pay?', 'say:what should I pay'], repay:['What does repaid mean?', 'say:what is repayment'], exempt:['What does exempt mean?', 'say:what does exempt mean']};
@@ -286,7 +293,7 @@ function closeOpen(){ const A = ag(), o = A.open; A.open = null; A.landRow = nul
 function ask(q){
   const A = ag(), Q = question(q); if(!Q) return;
   closeOpen();
-  const el = turn(Q.text, Q.html, {count:Q.count}); q.snap = snapshot(); A.open = {...q, el};
+  const el = turn(Q.text, Q.html, {count:Q.count}); q.snap = snapshot(); A.open = {...q, el}; { const L = el.querySelector('#ag-state-l'), c = L && L.querySelector('.ag-row-r'); if(c) L.scrollTop = c.closest('.ag-row').offsetTop - L.offsetTop; }
   setPh(Q.ph); renderHelpers(Q.help || []); renderTrack(); Mo.outline(askKeys(q)); focusNext(el);
 }
 /* a question must never be left behind with live options: an aside retires them and the question is asked again at the bottom */
@@ -309,9 +316,18 @@ function reconcile(){ const A = ag(); if(A.busy || S.sent || !A.picked) return; 
 function autoLine(){ const A = ag(), o = ot(); const key = o.mode === 'auto' ? basisKey() : ''; if(key && A.autoSaid !== key){ A.autoSaid = key; line(`${ic('info')}<span>${h(o.short || o.why)} ${h(o.short ? 'Gets overtime pay' : otWords(false))}.</span>`); } }
 function retryText(){ return `Answered in the form`; }
 
+/* Change under a reply: the same question comes back with its options, in place of retyping or hunting through the summary. One live link per question; it goes when the question stops applying */
+const againKey = q => q.id === 'conf' ? `conf|${q.k}` : q.fields ? `${q.id}|${q.fields.join(',')}` : q.id;
+function againOK(key){ const [id, fs] = key.split('|'), f = S.f; if(S.sent) return false; if(id === 'role') return true; if(id === 'conf') return !!S.conf[fs]; if(id === 'prop') return !!S.prop.amount; if(id === 'state') return isEmp() && f.location === 'Remote'; if(id === 'office') return !!f.location && f.location !== 'Remote'; if(id === 'ot') return isEmp() && ot().mode !== 'wait'; if(id === 'pg') return isEmp(); return fs ? fs.split(',').some(applies) : true; }
+function canChange(me, q, label){ if(!me || !q || me.querySelector('.ag-again')) return; const A = ag(), key = q === 'role' ? 'role' : againKey(q); $$('.ag-again', A.thread).filter(b => b.dataset.key === key).forEach(b => b.remove()); me.insertAdjacentHTML('beforeend', `<button type="button" class="linkbtn quiet ag-again" data-ag="again:${key}" data-key="${key}" data-u="${A.undo.length}">Change<span class="sr"> your answer: ${h(label)}</span></button>`); }
+function syncAgain(){ $$('.ag-again', ag().thread).forEach(b => b.classList.toggle('is-off', !againOK(b.dataset.key))); }
+function again(key){ const A = ag(), [id, fs] = key.split('|'); if(A.busy || !againOK(key)) return; A.stick = true; if(id === 'role'){ confirmRestart(); return; } if(id === 'conf' || id === 'prop'){ const k = id === 'conf' ? fs : 'amount'; A.skip.delete(k); ask({id, k}); return; } const q = {id, change:true}; if(fs) q.fields = fs.split(',').filter(k => k === 'bonusRepay' || applies(k)); ask(q); }
+function confirmRestart(){ const A = ag(); closeOpen(); const el = turn('Start over? This clears the offer.', `<div class="ag-chips">${chip('keep', 'Keep this offer')}${chip('restart', 'Start over')}</div>`); A.open = {id:'confirm', el}; focusNext(el); }
 function answer(q, v, label, src){
   const A = ag(), me = src && !instant() ? Mo.morph(src, label) : bubble(label), from = me.querySelector('.ag-bubble, .ag-row, .ag-chip') || me;
-  pushUndo(q.snap || snapshot()); travel(from, () => applyAns(q.id, v));
+  if(q.id === 'ot' && v === 'walk'){ closeOpen(); ask({id:'ot', change:q.change, walk:true}); return; }
+  pushUndo(q.snap || snapshot());
+  canChange(me, q, label); travel(from, () => applyAns(q.id, v));
   closeOpen();
   if(q.change){ q.change = false; }
   next();
@@ -324,7 +340,7 @@ function applyAns(id, v){
   if(id === 'pg') set('payrollGroup', v);
   if(id === 'invite') set('invite', v === 'yes');
   if(id === 'style'){ S.style = v; syncStyle(); saveDraft(); }
-  if(id === 'extras'){ A.extrasDone = true; if(v === 'bonus' || v === 'both'){ f.bonusOpen = true; onCommit('bonusOpen'); } if(v === 'equity' || v === 'both'){ f.equityOpen = true; onCommit('equityOpen'); } }
+  if(id === 'extras'){ A.extrasDone = true; const b = v === 'bonus' || v === 'both', e = v === 'equity' || v === 'both'; if(b !== !!f.bonusOpen){ Object.assign(f, b ? {bonusOpen:true} : {bonusOpen:false, bonus:'', bonusRepay:false, bonusMonths:''}); onCommit('bonusOpen'); } if(e !== !!f.equityOpen){ Object.assign(f, e ? {equityOpen:true} : {equityOpen:false, equity:''}); onCommit('equityOpen'); } }
   if(id === 'ot'){ A.skip.delete('duties'); set('duties', v); if(v === 'unsure'){ A.skip.add('duties'); turn(saved() ? 'Your draft is saved. Check with whoever runs payroll.' : 'Check with whoever runs payroll.'); } }
   otAgain(before);
   renderTrack();
@@ -344,8 +360,8 @@ function submitCard(q, form){
   if(bad.length){ bad.forEach(b => { const e = form.querySelector(`#ag-f-${b.k}-e`); if(e){ e.textContent = b.msg; const w = e.parentElement; if(w.classList.contains('ag-errw')) w.classList.add('is-on'); } }); const t = form.querySelector(`#ag-f-${bad[0].k}`) || form.querySelector(`[name=${bad[0].k}]`); if(t) t.focus(); say(bad.map(b => b.msg).join('. ')); return; }
   const prev = f.empType; ks.forEach(k => { if(k !== 'bonusRepay' && !S.src[k]) S.typed[k] = true; onCommit(k, prev); });
   pushUndo(q.snap || snapshot());
-  const both = ks.includes('startDate') && ks.includes('endDate') && f.startDate && f.endDate, lab = [...(both ? [`Starts ${disp('startDate', f.startDate)}`, `ends ${disp('endDate', f.endDate)}`] : []), ...ks.filter(k => k !== 'bonusRepay' && f[k] !== '' && !(both && (k === 'startDate' || k === 'endDate'))).map(k => k === 'first' ? fullName() : k === 'last' ? '' : disp(k, f[k]))].filter(Boolean).join(', ');
-  closeOpen(); bubble(lab || 'Done');
+  const both = ks.includes('startDate') && ks.includes('endDate') && f.startDate && f.endDate, lab = [...(both ? [`Starts ${disp('startDate', f.startDate)}`, `ends ${disp('endDate', f.endDate)}`] : []), ...ks.filter(k => k !== 'bonusRepay' && f[k] !== '' && !(k === 'payType' && ks.includes('amount')) && !(both && (k === 'startDate' || k === 'endDate'))).map(k => k === 'first' ? fullName() : k === 'last' ? '' : k === 'bonusMonths' ? (f.bonusRepay ? `repaid within ${f[k]} month${+f[k] === 1 ? '' : 's'}` : '') : disp(k, f[k]))].filter(Boolean).join(', ');
+  closeOpen(); canChange(bubble(lab || 'Done'), q, lab || 'Done');
   if(ks.includes('amount')) rangeNote();
   next();
 }
@@ -359,7 +375,7 @@ const STEPS = [
 ];
 function stepValue(s, left){ const f = S.f;
   if(left) return `${left} left`;
-  if(s.id === 'role') return (S.cand || fullName() || f.title || '').trim() || 'Done';
+  if(s.id === 'role') return (fullName() || S.cand || f.title || '').trim() || 'Done';
   if(s.id === 'pay') return payText();
   if(s.id === 'payroll'){ if(isCon()) return f.invite ? 'Invite on' : 'No invite'; if(ot().mode === 'wait') return 'After pay'; const v = otFinal(); return v === null ? '' : v ? 'No overtime pay' : 'Gets overtime pay'; }
   return f.expiry ? 'Expires ' + shortDt(f.expiry) : ''; }
@@ -373,7 +389,7 @@ function stepModel(){ const miss = missing(), f = S.f, o = ag().open, open = o &
 function swapText(box, text){ const cur = box.querySelector('.ag-v:not(.is-out)'); if(cur && cur.textContent === text) return false; const n = document.createElement('span'); n.className = 'ag-v'; n.textContent = text;
   if(cur){ if(instant()) cur.remove(); else { cur.classList.add('is-out'); n.classList.add('is-in'); setTimeout(() => cur.remove(), Motion.ms('--ag-out')); } } box.appendChild(n); return !!cur; }
 function renderTrack(){
-  const A = ag(), el = $('#ag-track'), w = $('#ag-trackw'); if(!el) return; $$('.ag-tool-d dt[data-k]', A.thread).forEach(x => { x.textContent = LABEL(x.dataset.k); });
+  const A = ag(), el = $('#ag-track'), w = $('#ag-trackw'); syncAgain(); if(!el) return; $$('.ag-tool-d dt[data-k]', A.thread).forEach(x => { x.textContent = LABEL(x.dataset.k); });
   if(!A.picked || (A.busy && !A.trackOn)){ A.trackOn = false; A.trackArrived = false; w.classList.remove('is-on'); delete el.dataset.built; return; }
   if(A.trackHold > 0 && el.dataset.built) return;
   A.trackOn = true; const first = !el.dataset.built;
@@ -382,11 +398,11 @@ function renderTrack(){
   if(first && !arrive){ w.classList.add('no-anim'); requestAnimationFrame(() => requestAnimationFrame(() => w.classList.remove('no-anim'))); }
   w.classList.add('is-on'); A.trackArrived = true;
   if(arrive){ el.classList.add('is-arrive'); setTimeout(() => el.classList.remove('is-arrive'), Motion.ms('--d-slower') + 4 * Motion.ms('--ag-land')); }
-  swapText($('#ag-tt'), S.cand || fullName() ? poss0() + ' offer' : 'New offer'); swapText($('#ag-count'), S.sent ? 'Sent' : !n ? 'Ready to review' : `${n} left`);
+  swapText($('#ag-tt'), fullName() || S.cand ? poss0() + ' offer' : 'New offer'); swapText($('#ag-count'), S.sent ? 'Sent' : !n ? 'Ready to review' : `${n} left`);
   const avg = m.cells.reduce((a, c) => a + c.frac, 0) / 4; el.classList.toggle('is-all', !!S.sent || !n); el.classList.toggle('is-sent', !!S.sent); const setFrac = () => { $('#ag-pf').style.strokeDashoffset = String(1 - (S.sent ? 1 : avg)); m.cells.forEach((c, i) => { el.querySelectorAll('.ag-step')[i].style.setProperty('--f', c.frac.toFixed(3)); }); }; if(arrive) requestAnimationFrame(() => requestAnimationFrame(setFrac)); else setFrac();
   m.cells.forEach((c, i) => { const b = el.querySelectorAll('.ag-step')[i], v = b.querySelector('.ag-step-v'), changed = swapText(v, c.short || c.val); b.classList.toggle('is-cur', i === m.cur); b.classList.toggle('is-done', c.done); b.setAttribute('aria-label', `${c.s.name}: ${c.val}. Change`); if(changed && !first && !instant()){ b.classList.remove('is-tint'); void b.offsetWidth; b.classList.add('is-tint'); b.addEventListener('animationend', function t(e){ if(e.animationName === 'ag-tint'){ b.classList.remove('is-tint'); b.removeEventListener('animationend', t); } }); } });
 }
-const poss0 = () => { const n = (S.cand || fullName()).trim().split(' ')[0]; return n ? n + (n.endsWith('s') ? "'" : "'s") : ''; };
+const poss0 = () => { const n = (fullName() || S.cand || '').trim().split(' ')[0]; return n ? n + "'s" : ''; };
 function openStep(id){ const s = STEPS.find(x => x.id === id), f = S.f, A = ag(); if(!s) return; if(S.sent){ turn(sentLine()); return; }
   const ks = s.fields.filter(k => (k === 'state' ? f.location === 'Remote' && !isCon() : k === 'workplace' ? f.location && f.location !== 'Remote' : k === 'duties' || k === 'payrollGroup' ? isEmp() : k === 'bonus' ? true : true));
   const val = k => k === 'first' ? (fullName() || 'not set') : k === 'amount' ? (payText() || 'not set') : k === 'style' ? S.style : k === 'bonus' ? (f.bonusOpen ? disp('bonus', f.bonus) : 'None') : k === 'equity' ? (f.equityOpen ? f.equity || 'not set' : 'None') : k === 'duties' ? (otFinal() === null ? 'not set' : otFinal() ? 'No overtime pay' : 'Gets overtime pay') : disp(k, f[k]);
@@ -394,7 +410,7 @@ function openStep(id){ const s = STEPS.find(x => x.id === id), f = S.f, A = ag()
 const sentLine = () => `This offer has been sent to ${who()}.`;
 /* one sender is set up; the agent says so and offers nothing it can't do */
 function senderTurn(inline){ const m = `${sender().name} is the only sender set up.`, n = inline && ag().open && ag().open.id === 'review' && $('#ag-sender-n'); if(n){ n.textContent = m; n.hidden = false; Mo.rise(n); say(m); return; } turn(m); }
-function askField(k){ const A = ag(); if(A.busy) return; if(S.sent){ turn(sentLine()); return; } if(k === 'sender'){ senderTurn(A.how !== 'typed'); return; } if(isCon() && (k === 'duties' || k === 'payrollGroup')){ turn(NOT_CON); return; } A.reopen = null; if((k === 'bonus' || k === 'equity') && !S.f[k + 'Open']){ pushUndo(snapshot()); S.f[k + 'Open'] = true; A.extrasDone = true; onCommit(k + 'Open'); A.reopen = k; } A.skip.delete(k); const q = qFor(k); if(q) ask(q); }
+function askField(k){ const A = ag(); if(A.busy) return; if(S.sent){ turn(sentLine()); return; } if(k === 'sender'){ senderTurn(A.how !== 'typed'); return; } if(isCon() && (k === 'duties' || k === 'payrollGroup')){ turn(NOT_CON); return; } if(k === 'duties' && ['wait', 'na'].includes(ot().mode)){ turn("I'll ask about overtime once the worker type, pay and work location are set."); reAsk(); return; } A.reopen = null; if((k === 'bonus' || k === 'equity') && !S.f[k + 'Open']){ pushUndo(snapshot()); S.f[k + 'Open'] = true; A.extrasDone = true; onCommit(k + 'Open'); A.reopen = k; } A.skip.delete(k); const q = qFor(k); if(q) ask(q); }
 
 /* ===================== roles and the tool run ===================== */
 function askRoles(){
@@ -460,13 +476,13 @@ async function runTool(title, groups, A = ag(), source = ''){
 }
 async function pickRole(id, o = {}){
   const A = ag(), r = ROLES.find(x => x.id === id); if(!r || A.busy) return;
-  if(o.how) A.how = o.how; pushUndo(snapshot()); const lab = r.cand ? `${r.cand}, ${r.title}` : r.title, b = o.src && !instant() ? Mo.morph(o.src, lab) : bubble(lab); closeOpen();
+  if(o.how) A.how = o.how; pushUndo(snapshot()); const lab = r.cand ? `${r.cand}, ${r.title}` : r.title, b = o.src && !instant() ? Mo.morph(o.src, lab) : bubble(lab); canChange(b, 'role', lab); closeOpen();
   A.picked = true; A.role = id; A.extrasDone = r.status === 'approved'; A.showAll = false; S.newOffer = false;
   const ok = await runTool(r.status === 'none' ? `Reading the ${r.title} posting.` : `Reading what ${ATS()} has for ${r.cand}.`, groupsFor(r), A, r.status === 'none' ? 'the posting' : ATS());
   if(!ok || S.ag !== A) return; if(!o.stop) next(); drain();
 }
 function drain(){ const A = ag(); const q = A.queue.splice(0); q.forEach(t => understand(t)); }
-function startBlank(){ const A = ag(); closeOpen(); A.picked = true; A.role = null; pushUndo(snapshot()); bubble('Start with a blank offer'); settingsSrc(); renderTrack(); next(); }
+function startBlank(){ const A = ag(); closeOpen(); A.picked = true; A.role = null; pushUndo(snapshot()); canChange(bubble('Start with a blank offer'), 'role', 'Start with a blank offer'); settingsSrc(); renderTrack(); next(); }
 async function readLink(url){ const A = ag(); if(!/ashbyhq|greenhouse|lever|jobs/.test(url) || url !== PRIYA_LINK){ turn("I couldn't read that link. Paste the job details here, or start with a blank offer."); return; }
   pushUndo(snapshot()); closeOpen(); A.picked = true; A.viaFill = true; S.newOffer = false;
   const ok = await runTool('Reading the job posting.', [{label:'Reading the job posting', fn(){ applyPriya(true, null); }, res:() => S.posting ? S.posting.loc : ''}], A, 'the posting'); if(ok){ next(); drain(); } }
@@ -479,10 +495,10 @@ function attachFile(){ const A = ag(); if(A.busy) return; bubble('jordan-notes.t
 function resolveConf(k, i){ const c = S.conf[k], A = ag(); if(!c) return; pushUndo(snapshot()); const o = c.opts[+i]; delete S.conf[k];
   if(c.pair){ Object.assign(S.f, o.val); if(o.src){ if(o.src.amount) S.src.amount = o.src.amount; if(o.src.payType) S.src.payType = o.src.payType; } onCommit('amount'); onCommit('payType'); }
   else { S.f[k] = o.val; if(o.src) S.src[k] = o.src; else S.typed[k] = true; onCommit(k, S.f.empType); }
-  renderTrack(); closeOpen(); bubble(c.pair ? `$${o.val.amount} ${o.val.payType === 'Hourly' ? 'an hour' : 'a year'}` : disp(k, o.val)); next(); }
+  renderTrack(); closeOpen(); { const t = c.pair ? `$${o.val.amount} ${o.val.payType === 'Hourly' ? 'an hour' : 'a year'}` : disp(k, o.val); canChange(bubble(t), qFor(c.pair ? 'amount' : k), t); } next(); }
 function useProp(){ const p = S.prop.amount, A = ag(); if(!p) return; pushUndo(snapshot()); delete S.prop.amount; const rd = {kind:'read', from:'notes', quote:p.quote};
   if(S.f.payType && !S.src.payType && S.f.payType !== p.unit){ putPay(p.val, p.unit, rd, rd); refresh(null, true); closeOpen(); next(); return; }
-  S.src.amount = {...rd, val:p.val, pre:S.f.amount}; S.f.amount = p.val; if(S.f.payType !== p.unit){ S.src.payType = {...rd, val:p.unit, pre:S.f.payType}; S.f.payType = p.unit; } onCommit('amount'); renderTrack(); closeOpen(); bubble('Use ' + p.label); next(); }
+  S.src.amount = {...rd, val:p.val, pre:S.f.amount}; S.f.amount = p.val; if(S.f.payType !== p.unit){ S.src.payType = {...rd, val:p.unit, pre:S.f.payType}; S.f.payType = p.unit; } onCommit('amount'); renderTrack(); closeOpen(); canChange(bubble('Use ' + p.label), qFor('amount'), 'Use ' + p.label); next(); }
 
 /* ===================== Review, Send ===================== */
 function wrapUp(){
@@ -521,38 +537,33 @@ function slot(on){ const A = ag(), f = $('#ag-approve-f'), c = $('#ag-approve');
 function doSend(){ const A = ag(), f = S.f; S.sendErr = false; S.sent = true; if(!instant()){ const close = Motion.ms('--d-close'); A.stick = true; A.toEnd = false; A.lateUntil = performance.now() + close; A.quietUntil = performance.now() + close + Motion.ms('--ag-fly-max'); setTimeout(() => { if(S.ag === A) Mo.latest(); }, close + Motion.ms('--ag-fly-max') + Motion.ms('--d-micro')); Mo.latest(); } closeOpen(); retireUndo();
   const steps = ['Sent', 'Viewed', 'Signed'].concat(f.invite ? ['Invited'] : []);
   const sentEl = turn(`Offer sent to ${fullName()}.`, `<div class="ag-sent"><svg class="sent-mark" viewBox="0 0 72 72" aria-hidden="true"><circle cx="36" cy="36" r="32"/><path d="M23 37l9 9 17-19"/></svg><p>We've emailed ${h(who())} a link to read and e-sign the letter.</p><p>${h(who())} has until ${h(fdate(f.expiry))}, to sign.</p><ol class="track" aria-label="Offer status">${steps.map((t, i) => `<li class="${i === 0 ? 'on' : ''}"><span class="st">${i === 0 ? ic('check') : ''}</span><span>${t}</span></li>`).join('')}</ol><button type="button" class="btn btn-secondary" data-act="to-list">Back to offer letters</button></div>`);
-  renderTrack(); const c = $('#ag-foot'); if(c) c.classList.add('is-gone'); renderHelpers([]); markSent(); { const L = $('#ltScroll'); if(L && !instant()) L.animate([{transform:'translateY(0)'}, {transform:`translateY(${-px('--rise-sm')}px)`, offset:0.4}, {transform:'translateY(0)'}], {duration:Motion.ms('--d-slower'), easing:cssv('--ease-move')}); } focusNext(sentEl);
+  renderTrack(); const c = $('#ag-foot'); if(c) c.classList.add('is-gone'); renderHelpers([]); markSent(); focusNext(sentEl);
 }
 
 /* ===================== Review modal: one review for both modes ===================== */
-const RV = {open:false, dir:0, anims:null, fly:null, opener:null, sending:false, then:null, ro:null, key:'', note:'', nudge:0};
+const RV = {open:false, dir:0, anims:null, opener:null, sending:false, then:null, ro:null, key:'', note:'', nudge:0};
 const rvRoot = () => $('#rvm');
 const rvS = () => $('#rvm-scroll');
 function rvHTML(){ const w = h(who()), f = S.f, s = sender();
   return `<div class="rvm-scrim" data-rv="scrim"></div><div class="rvm-box" role="dialog" aria-modal="true" aria-labelledby="rvm-h"><header class="rvm-head"><h2 class="rvm-title" id="rvm-h">What ${w} will see</h2><button type="button" class="rvm-x" data-rv="close" aria-label="Close">${ic('x')}</button></header>
     <div class="rvm-scroll" id="rvm-scroll" tabindex="0" role="region" aria-label="Offer letter, scrolls"><div class="rvm-in"><div class="paper" id="rvm-paper">${letterHTML(true)}</div>
-      <p class="attach">${ic('file-text')}<span>Sent with the letter: ${isCon() ? 'Contractor Confidentiality and IP Assignment Agreement' : 'Confidential Information and Invention Assignment Agreement'} (the company's own document, not shown here).</span></p>
+      <aside class="rvm-side" aria-label="What goes with the letter"><p class="attach">${ic('file-text')}<span>Sent with the letter: ${isCon() ? 'Contractor Confidentiality and IP Assignment Agreement' : 'Confidential Information and Invention Assignment Agreement'} (the company's own document, not shown here).</span></p>
       <section class="card rvm-mail" aria-labelledby="rvm-mail-h"><h3 class="card-h" id="rvm-mail-h">${ic('mail')}The email ${w} gets</h3><div class="email"><dl><dt>To</dt><dd>${h(f.email)}</dd><dd></dd><dt>From</dt><dd>${h(s.name)} via Bolto</dd><dd></dd><dt>Subject</dt><dd>Your offer from ${COMPANY}</dd><dd></dd></dl>
-        <div class="b"><p>Hi ${w},</p><div><div class="lbl"><label for="rvm-note">Personal note <span class="opt">(optional)</span></label></div><textarea class="textarea" id="rvm-note">${h(f.note)}</textarea></div><p>Your offer letter is ready to review and sign.</p><p>Please sign by ${fdate(f.expiry)}.</p><span class="fakebtn" aria-hidden="true">Review and sign</span><span class="sr">A "Review and sign" button.</span></div></div></section></div></div>
+        <div class="b"><p>Hi ${w},</p><div><div class="lbl"><label for="rvm-note">Personal note <span class="opt">(optional)</span></label></div><textarea class="textarea" id="rvm-note">${h(f.note)}</textarea></div><p>Your offer letter is ready to review and sign.</p><p>Please sign by ${fdate(f.expiry)}.</p><span class="fakebtn" aria-hidden="true">Review and sign</span><span class="sr">A "Review and sign" button.</span></div></div></section></aside></div></div>
     <footer class="rvm-foot"><div class="rvm-prog" aria-hidden="true"><i id="rvm-bar"></i></div><p class="rvm-appr" id="rvm-appr">${h(approvalText())}</p><div class="ag-errw" id="rvm-err-w"><div class="ag-err" id="rvm-err"></div></div>
       <div class="rvm-acts"><p class="rvm-line" id="rvm-line"><span class="rvm-l rvm-l0">${ic('arrow-down')}<span>Scroll to the bottom to send the offer</span></span><span class="rvm-l rvm-l1">${ic('check')}<span>${RV.was ? "You've seen this letter to the end" : "You've reached the end"}</span></span></p><button type="button" class="btn btn-secondary" data-rv="change">Make a change</button><button type="button" class="btn btn-primary btn-send" id="rvm-send" data-rv="send"><span class="label">Send offer to ${w}${ic('send')}</span><span class="spin">${ic('loader-circle', 'spinner')}</span></button></div></footer></div>`; }
 /* the gate. Reaching the end latches this exact letter; a letter that fits has no rule and no line */
-function rvCheck(){ if(!RV.open) return; const e = rvS(), box = $('.rvm-box'), b = $('#rvm-send'); if(!e || !box || !b) return; const A = ag(), max = e.scrollHeight - e.clientHeight, fits = max <= 1; if(fits || e.scrollTop >= max - 8) A.rvSeen = RV.key;
+function rvCheck(){ if(!RV.open) return; const e = rvS(), box = $('.rvm-box'), b = $('#rvm-send'); if(!e || !box || !b) return; const A = ag(), max = e.scrollHeight - e.clientHeight, fits = max <= 1; box.style.setProperty('--rvm-view', e.clientHeight + 'px'); if(fits || e.scrollTop >= max - 8) A.rvSeen = RV.key;
   const read = A.rvSeen === RV.key, gate = fits ? 'fits' : read ? 'read' : 'locked'; if(box.dataset.gate !== gate) box.dataset.gate = gate;
   b.classList.toggle('is-locked', !read); if(read) b.removeAttribute('aria-disabled'); else b.setAttribute('aria-disabled', 'true'); b.setAttribute('aria-describedby', fits ? 'rvm-appr' : 'rvm-appr rvm-line'); $('#rvm-line').hidden = fits; const bar = $('#rvm-bar'); bar.style.transform = `scaleX(${fits ? 1 : Math.min(1, e.scrollTop / max)})`; bar.parentElement.hidden = fits || RV.was; }
 function rvInert(on){ $$('#hdr, #screen, #footer, .demo').forEach(x => { x.inert = on; }); }
 function rvLock(on){ const d = document.documentElement, b = document.body, ft = $('#footer'); if(on){ const sb = innerWidth - d.clientWidth; d.style.overflow = 'hidden'; if(sb > 0){ b.style.paddingRight = sb + 'px'; if(ft) ft.style.right = sb + 'px'; } return; } d.style.overflow = ''; b.style.paddingRight = ''; if(ft) ft.style.right = ''; }
-/* where the paper is in the letter column and in the modal: position plus how much of it shows */
-function rvPoses(){ const L = $('#letter'), W = $('#ltScroll'), P = $('#rvm-paper'), B = rvS(); if(!wide() || !L || !W || !P || !L.getClientRects().length) return null; const s = L.getBoundingClientRect(), w = W.getBoundingClientRect(), p = P.getBoundingClientRect(), b = B.getBoundingClientRect(), H = p.height;
-  return {w:p.width, a:{x:s.left, y:s.top, t:Math.max(0, w.top - s.top), b:Math.max(0, H - (Math.min(w.bottom, innerHeight) - s.top))}, z:{x:p.left, y:p.top, t:Math.max(0, b.top - p.top), b:Math.max(0, H - (b.bottom - p.top))}}; }
-function rvBuild(){ const root = rvRoot(), box = $('.rvm-box', root), scrim = $('.rvm-scrim', root), head = $('.rvm-head', root), foot = $('.rvm-foot', root), opt = {duration:Motion.ms('--ag-rvm', {raw:true}), easing:cssv('--ease-move'), fill:'both'}, rise = px('--rise');
+function rvBuild(){ const root = rvRoot(), box = $('.rvm-box', root), scrim = $('.rvm-scrim', root), opt = {duration:Motion.ms('--ag-rvm', {raw:true}), easing:cssv('--ease-move'), fill:'both'};
   if(Motion.reduced()) return [root.animate({opacity:[0, 1]}, {duration:Motion.ms('--d-fast', {raw:true}), easing:cssv('--ease-linear'), fill:'both'})];
-  const P = $('#rvm-paper'), pose = rvPoses(), fade = scrim.animate({opacity:[0, 1]}, opt); if(!wide()) return [fade, box.animate({transform:['translateY(100%)', 'translateY(0)']}, {...opt, easing:cssv('--ease-enter')})];
-  const parts = [fade, box.animate([{opacity:0}, {opacity:0, offset:0.3}, {opacity:1}], opt), head.animate([{opacity:0, transform:`translateY(${-rise}px)`}, {opacity:0, transform:`translateY(${-rise}px)`, offset:0.3}, {opacity:1, transform:'translateY(0)'}], opt), foot.animate([{opacity:0, transform:`translateY(${rise}px)`}, {opacity:0, transform:`translateY(${rise}px)`, offset:0.3}, {opacity:1, transform:'translateY(0)'}], opt)];
-  if(pose){ const fly = document.createElement('div'), r = px('--r-xl'), at = q => ({transform:`translate(${q.x}px, ${q.y}px)`, clipPath:`inset(${q.t}px 0px ${q.b}px 0px round ${r}px)`}); fly.className = 'rvm-fly'; fly.style.width = pose.w + 'px'; fly.innerHTML = `<div class="paper">${P.innerHTML}</div>`; root.appendChild(fly); RV.fly = fly; P.style.visibility = 'hidden'; parts.unshift(fly.animate([at(pose.a), at(pose.z)], opt)); }
-  return parts; }
-function rvClean(){ const R = RV; if(R.anims) R.anims.forEach(a => a.cancel()); R.anims = null; if(R.fly){ R.fly.remove(); R.fly = null; } const P = $('#rvm-paper'); if(P) P.style.visibility = ''; }
-/* one function runs the flight either way, so a close during the open just turns the same animations around (A25, A28) */
+  if(!wide()) return [scrim.animate({opacity:[0, 1]}, opt), box.animate({transform:['translateY(100%)', 'translateY(0)']}, {...opt, easing:cssv('--ease-enter')})];
+  return [scrim.animate({opacity:[0, 1]}, opt), box.animate({opacity:[0, 1], transform:[`translateY(${px('--rise')}px)`, 'translateY(0)']}, opt)]; }
+function rvClean(){ const R = RV; if(R.anims) R.anims.forEach(a => a.cancel()); R.anims = null; }
+/* one function runs the enter either way, so a close during the open just turns the same animations around (A25, A28) */
 function rvRun(dir, then){ const R = RV; R.dir = dir; R.then = then || null; if(ag().fast){ rvLanded(); return; }
   if(!R.anims){ R.anims = rvBuild(); if(dir < 0) R.anims.forEach(a => { a.currentTime = a.effect.getComputedTiming().endTime; }); }
   R.anims.forEach(a => { a.updatePlaybackRate(dir > 0 ? 1 : -1.25); a.play(); }); R.anims[0].onfinish = rvLanded; }
@@ -561,7 +572,7 @@ function rvLanded(){ const R = RV, dir = R.dir, then = R.then; rvClean(); R.then
 function openReview(){ const R = RV, root = rvRoot(); if(!root || missing().length) return;
   if(R.open && R.dir < 0){ root.classList.remove('is-closing'); $('.rvm-box', root).inert = false; rvInert(true); rvRun(1); Hifi.focusQuiet(rvS(), {preventScroll:true}); return; }
   if(R.open) return; R.opener = document.activeElement; R.open = true; R.sending = false; R.note = S.f.note; R.key = letterHTML(true) + '|' + S.style; R.was = ag().rvSeen === R.key; root.innerHTML = rvHTML(); root.hidden = false; rvInert(true); rvLock(true);
-  const L = $('#letter'), lw = wide() && L ? L.getBoundingClientRect().width : 0, box = $('.rvm-box', root), e = rvS(); if(lw) box.style.setProperty('--rvm-w', lw + 'px'); box.style.setProperty('--rvm-sb', (e.offsetWidth - e.clientWidth) + 'px');
+  const e = rvS();
   e.scrollTop = 0; rvCheck(); e.addEventListener('scroll', rvCheck, {passive:true}); if(window.ResizeObserver){ R.ro = new ResizeObserver(rvCheck); R.ro.observe(e); } rvRun(1); Hifi.focusQuiet(e, {preventScroll:true}); }
 function rvFocusBack(to){ const R = RV, t = [to, R.opener, $('#ag-review-go'), $('[data-act="review"]'), $('#ag-input')].find(x => x && x.isConnected && x.getClientRects().length); if(t) Hifi.focusQuiet(t, {preventScroll:true}); }
 function rvClose(o = {}){ const R = RV, root = rvRoot(), A = ag(); if(!R.open || R.dir < 0 || (R.sending && !o.sent)) return; S.sendErr = false; if(typeof setTitle === 'function') setTitle(); rvInert(false); root.classList.add('is-closing'); $('.rvm-box', root).inert = true; if(!o.sent) rvFocusBack(o.to); const noted = !o.sent && S.f.note !== R.note; rvRun(-1); if(o.then) o.then(); if(noted && A.open && A.open.id === 'review') refreshReview(); }
@@ -583,18 +594,19 @@ const MON = {jan:0, feb:1, mar:2, apr:3, may:4, jun:5, jul:6, aug:7, sep:8, oct:
 function parseDate(t){ let m, y = 2026, mo, d;
   if((m = t.match(/\b(\d{4})-(\d{1,2})-(\d{1,2})\b/))){ y = +m[1]; mo = +m[2] - 1; d = +m[3]; }
   else if((m = t.match(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})(?:st|nd|rd|th)?(?:,?\s+(\d{4}))?/i))){ mo = MON[m[1].toLowerCase().slice(0, 3)]; d = +m[2]; if(m[3]) y = +m[3]; }
+  else if((m = t.match(/\b(\d{1,2})(?:st|nd|rd|th)?\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?(?:,?\s+(\d{4}))?/i))){ mo = MON[m[2].toLowerCase().slice(0, 3)]; d = +m[1]; if(m[3]) y = +m[3]; }
   else if((m = t.match(/\b(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\b/))){ mo = +m[1] - 1; d = +m[2]; if(m[3]) y = +m[3] < 100 ? 2000 + +m[3] : +m[3]; }
   else return null;
   const D = new Date(y, mo, d); if(D.getMonth() !== mo) return null; return `${y}-${String(mo + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`; }
 function parseMoney(t){ if(/(^|\s)-\s*\$?\d/.test(t)) return {val:'0', unit:''}; const m = t.match(/\$?\s*(\d[\d,]*(?:\.\d+)?)\s*(k)?\b/i); if(!m) return null; let n = parseFloat(m[1].replace(/,/g, '')); if(m[2]) n *= 1000; const unit = /\b(hour|hr|hourly)\b/i.test(t) ? 'Hourly' : /\b(year|yr|annual|salary)\b/i.test(t) ? 'Salary' : ''; return {val:n.toLocaleString('en-US'), unit}; }
-function parseState(t){ const s = t.trim().toLowerCase().replace(/[.?!]/g, ''); const list = STATES.filter(([c, n]) => { const nm = n.toLowerCase(); return c.toLowerCase() === s || nm === s || s.includes(nm) || nm.startsWith(s + ' ') || (s.length > 1 && nm.split(' (')[0] === s); });
+function parseState(t){ const s = t.trim().toLowerCase().replace(/[.?!]/g, ''); if(/\bwashington,?\s*dc\b/.test(s)) return STATES.filter(([c]) => c === 'DC'); const list = STATES.filter(([c, n]) => { const nm = n.toLowerCase(); return c.toLowerCase() === s || nm === s || s.includes(nm) || nm.startsWith(s + ' ') || (s.length > 1 && nm.split(' (')[0] === s); });
   if(!list.length && /\bnew york\b|\bny\b/.test(s)) return STATES.filter(([c]) => /^NY/.test(c)); if(!list.length && s.length >= 5) return STATES.filter(([c, n]) => lev(s, n.toLowerCase().split(' (')[0]) <= 2).slice(0, 1); return list; }
 /* typing slips: a word close enough to a known option counts, only for short answers */
 function lev(a, b){ const d = [...Array(b.length + 1).keys()]; for(let i = 1; i <= a.length; i++){ let p = d[0]; d[0] = i; for(let j = 1; j <= b.length; j++){ const q = d[j]; d[j] = Math.min(d[j] + 1, d[j - 1] + 1, p + (a[i - 1] === b[j - 1] ? 0 : 1)); p = q; } } return d[b.length]; }
 const near = (l, w) => { const tol = w.length >= 6 ? 2 : w.length >= 4 ? 1 : 0; return l.split(/[\s-]+/).some(x => x === w || (tol && Math.abs(x.length - w.length) <= tol && lev(x, w) <= tol)); };
 /* the one place that decides what typed text is. A command or a question comes first; anything else is an answer only if it looks like a value for the open field */
 const COMMAND = /^(?:please\s+)?(?:change|set|make|move|update|edit|actually|add|remove|drop|undo|skip|save|switch to|use (?:the|our)\b|start over|different role|no (?:the )?(?:bonus|equity)\b)|^(?:start|pay|salary|expires?)\b.*\d/;
-function fitsOpen(o, t, l){ if(o.id === 'equity') return /\d|\b(?:percent|shares?|options?|rsus?|stock)\b/.test(l); if(o.id === 'bonus') return /\d/.test(l); if(o.id === 'who') return /@/.test(t) || /^[A-Z][\w'-]*(?:\s+[A-Z][\w'-]*)+$/.test(t.trim()); return true; }
+function fitsOpen(o, t, l){ const refuse = /^(?:none|no|nothing|remove(?: it)?|drop(?: it)?)$/.test(l); if(o.id === 'equity') return refuse || /\d|\b(?:percent|shares?|options?|rsus?|stock)\b/.test(l); if(o.id === 'bonus') return refuse || /\d/.test(l); if(o.id === 'who') return !!o.change || /@/.test(t) || /^[A-Z][\w'-]*(?:\s+[A-Z][\w'-]*)+$/.test(t.trim()); return true; }
 function typedKind(t, l, o){ if(isQuestion(t)) return 'question'; if(COMMAND.test(l)) return 'command'; return o && fitsOpen(o, t, l) ? 'answer' : 'other'; }
 const isQuestion = t => /\?\s*$/.test(t) || /^(what|why|how|who|when|where|is|are|does|do|can|could|should|would|will|tell me|explain)\b/i.test(t.trim());
 function parsePerson(t){ return PEOPLE.find(p => new RegExp(`\\b${p.split(' ')[0]}\\b`, 'i').test(t)); }
@@ -610,7 +622,7 @@ const EXPLAIN = [
 function explain(t){ const hit = EXPLAIN.find(e => e[0].test(t)); if(!hit) return false; if(hit[3] === 'emp' && isCon()){ turn(NOT_CON); return true; } turn(hit[1](), hit[2] ? sourceCard(hit[2]) : ''); return true; }
 const sourceCard = k => { const [d, t, u] = LINKS[k]; return `<a class="ag-source" href="${u}" target="_blank" rel="noopener"><span class="ag-source-l"><span class="ag-quiet">${d}</span><span>${h(t)}</span></span>${ic('arrow-up-right')}<span class="sr"> (opens in a new tab)</span></a>`; };
 
-const FIELD_WORDS = [[/sender/, 'sender'], [/worker type|employment type|\bw-?2\b|contractor/, 'empType'], [/start date|start/, 'startDate'], [/end date|contract end/, 'endDate'], [/bonus/, 'bonus'], [/equity/, 'equity'], [/\bstate\b/, 'state'], [/office|workplace/, 'workplace'], [/location|where|remote|hybrid|on-?site/, 'location'], [/report|manager|contact/, 'reportsTo'], [/email/, 'email'], [/first name/, 'first'], [/last name/, 'last'], [/\bname\b/, 'first'], [/title|job/, 'title'], [/expir/, 'expiry'], [/overtime|exempt|main work/, 'duties'], [/payroll group/, 'payrollGroup'], [/invite/, 'invite'], [/style/, 'style'], [/note/, 'note'], [/pay|salary|hourly|amount|wage/, 'amount']];
+const FIELD_WORDS = [[/sender/, 'sender'], [/worker type|employment type|\bw-?2\b|contractor/, 'empType'], [/start date|start/, 'startDate'], [/end date|contract end/, 'endDate'], [/bonus/, 'bonus'], [/equity/, 'equity'], [/\bstate\b/, 'state'], [/office|workplace/, 'workplace'], [/location|where|remote|hybrid|on-?site/, 'location'], [/report|manager|contact/, 'reportsTo'], [/email/, 'email'], [/first name/, 'first'], [/last name/, 'last'], [/\bname\b/, 'name'], [/department/, 'department'], [/title|job/, 'title'], [/expir/, 'expiry'], [/overtime|exempt|main work/, 'duties'], [/payroll group/, 'payrollGroup'], [/invite/, 'invite'], [/style/, 'style'], [/note/, 'note'], [/pay|salary|hourly|amount|wage/, 'amount']];
 function change(k, v, o = {}){ const A = ag(), snap = snapshot(); pushUndo(snap); const was = k === 'style' ? S.style : disp(k, S.f[k]), prevD = S.f.duties;
   const nowFor = () => k === 'style' ? v : disp(k, S.f[k]); const el = line(`${ic('check')}<span>${h(LABEL(k))}: <span class="ag-chg"></span></span><button type="button" class="linkbtn" data-ag="undo">Undo</button>`, 'ag-change'); el.dataset.k = k;
   travel(el, () => { if(k === 'style'){ S.style = v; syncStyle(); saveDraft(); } else if(k === 'empType'){ if(S.src[k]) delete S.src[k]; swapType(v); } else { if(S.src[k]) delete S.src[k]; if(k === 'location'){ if(v === 'Remote') S.f.workplace = ''; else S.f.state = ''; } if(k === 'bonus' && !S.f.bonusOpen){ S.f.bonusOpen = true; A.extrasDone = true; onCommit('bonusOpen'); } if(k === 'equity' && !S.f.equityOpen){ S.f.equityOpen = true; A.extrasDone = true; onCommit('equityOpen'); } set(k, v); } if(o.unit && S.f.payType !== o.unit){ if(S.src.payType) delete S.src.payType; set('payType', o.unit); } });
@@ -626,29 +638,30 @@ function setPay(text){ const m = parseMoney(text); if(!m) return false; const e 
 /* an explicit "change X to Y": the value is checked the way the field's own question checks it, and a bad one says what to fix */
 function setField(k, raw){ const v = raw.trim().replace(/[.!]+$/, ''), lc = v.toLowerCase(), bad = m => { turn(m); return true; }, done = x => { change(k, x); settle(); return true; };
   if(k === 'sender'){ senderTurn(); return true; }
+  if(k === 'name'){ const p = v.split(/\s+/).filter(Boolean); if(!p.length) return false; change('first', p[0]); if(p.length > 1) change('last', p.slice(1).join(' ')); settle(); return true; }
   if(['startDate', 'endDate', 'expiry'].includes(k)){ const d = parseDate(v); if(!d) return bad('I need a real date for that, like June 15.'); if(k === 'expiry' && new Date(d + 'T00:00') < TODAY) return bad("The offer can't expire before today."); if(k === 'endDate' && S.f.startDate && d <= S.f.startDate) return bad('The contract must end after it starts.'); return done(d); }
   if(k === 'amount') return setPay(lc) || bad('I need a number for the pay, like 150,000.');
-  if(k === 'bonus'){ const m = parseMoney(lc); return !m ? bad('I need a number for the bonus, like 10,000.') : num(m.val) > 0 ? done(m.val) : bad('Enter a bonus amount above 0.'); }
+  if(k === 'bonus'){ const m = parseMoney(lc); if(!m) return bad('I need a number for the bonus, like 10,000.'); if(!(num(m.val) > 0)) return bad('Enter a bonus amount above 0.'); const mo = !/\bnot repaid\b/.test(lc) && lc.match(/(\d+)\s*months?\b/); if(mo){ S.f.bonusRepay = true; S.f.bonusMonths = mo[1]; } return done(m.val); }
   if(k === 'email') return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? done(v) : bad('Enter an email address in the correct format, like name@example.com');
   if(k === 'reportsTo'){ const p = parsePerson(v); return p ? done(p) : bad(`I can only pick someone on the team: ${PEOPLE.join(' or ')}.`); }
   if(k === 'state'){ const s = parseState(v); if(s.length === 1) return done(s[0][0]); if(s.length > 1){ stateChoice(s); return true; } return bad(`I don't know a state called "${v.slice(0, 40)}".`); }
   if(k === 'location'){ const x = near(lc, 'remote') ? 'Remote' : near(lc, 'hybrid') ? 'Hybrid' : /on.?site|office/.test(lc) ? 'On-site' : ''; return x ? done(x) : bad('Remote, Hybrid or On-site?'); }
   if(k === 'empType'){ const x = /full/.test(lc) ? 'ft' : /part/.test(lc) ? 'pt' : /contract|1099/.test(lc) ? 'c' : ''; return x ? done(x) : false; }
-  if(['title', 'first', 'last', 'equity', 'note'].includes(k)) return v ? done(v) : false;
+  if(['title', 'first', 'last', 'equity', 'note', 'department'].includes(k)) return v ? done(v) : false;
   if(k === 'style'){ const x = /concise/.test(lc) ? 'Concise' : /standard/.test(lc) ? 'Standard' : ''; return x ? done(x) : bad('Standard or Concise?'); }
   return false; }
 function fallback(){ turn("I can change details in this offer or explain a term. I can't help with that."); helperItems([["What's left", "say:what's left"], ["What's an I-9?", 'say:what is an I-9']]); }
 /* one undo stack; a new entry means no older line can honestly offer Undo any more */
 function pushUndo(s){ ag().undo.push(s); retireUndo(); }
 function retireUndo(){ const A = ag(); $$('.ag-change [data-ag="undo"]', A.thread).forEach(b => { if(document.activeElement === b) Hifi.focusQuiet(A.thread, {preventScroll:true}); b.removeAttribute('data-ag'); b.classList.add('is-retired'); b.tabIndex = -1; b.disabled = true; setTimeout(() => b.remove(), instant() ? 0 : Motion.ms('--ag-out')); }); }
-function undoLast(){ const A = ag(), s = A.undo.pop(); if(!s){ turn('Nothing to undo yet.'); return; } const before = {...S.f}, spots = {}, chg = [...$$('.ag-change', A.thread)].reverse().find(x => x.querySelector('[data-ag="undo"]')), o = A.open; retireUndo(); $$('#letter [data-v]').forEach(x => { if(seen(x) && !spots[x.dataset.v]) spots[x.dataset.v] = {r:x.getBoundingClientRect(), t:x.textContent}; }); restore(s); saveDraft(); const ks = Object.keys(before).filter(x => before[x] !== S.f[x] && !NO_TRAVEL.has(x)); { const k = ks.find(x => spots[x]); if(k) Mo.flyBack(spots[k].r, spots[k].t, chg); } if(chg) chg.classList.add('is-undone');
-  const k = (chg && chg.dataset.k) || (ks.length === 1 ? ks[0] : ''), msg = k === 'style' ? `Letter style back to ${S.style}` : k && S.f[k] ? `${LABEL(k)} back to ${disp(k, S.f[k])}` : 'Undone'; line(`${ic('check')}<span>${h(msg)}</span>`, 'ag-change is-undoline'); say(msg + '.');
+function undoLast(){ const A = ag(), s = A.undo.pop(); if(!s){ turn('Nothing to undo yet.'); return; } $$('.ag-again', A.thread).filter(b => +b.dataset.u > A.undo.length).forEach(b => b.remove()); const before = {...S.f}, spots = {}, chg = [...$$('.ag-change', A.thread)].reverse().find(x => x.querySelector('[data-ag="undo"]')), o = A.open; retireUndo(); $$('#letter [data-v]').forEach(x => { if(seen(x) && !spots[x.dataset.v]) spots[x.dataset.v] = {r:x.getBoundingClientRect(), t:x.textContent}; }); restore(s); saveDraft(); const ks = Object.keys(before).filter(x => before[x] !== S.f[x] && !NO_TRAVEL.has(x)); { const k = ks.find(x => spots[x]); if(k) Mo.flyBack(spots[k].r, spots[k].t, chg); } if(chg) chg.classList.add('is-undone');
+  const k = (chg && chg.dataset.k) || (ks.length === 1 ? ks[0] : ''), msg = k === 'style' ? `Letter style back to ${S.style}` : k === 'duties' && otFinal() !== null ? `Overtime back to ${otFinal() ? 'no overtime pay' : 'gets overtime pay'}` : k && S.f[k] ? `${LABEL(k)} back to ${disp(k, S.f[k])}` : 'Undone'; line(`${ic('check')}<span>${h(msg)}</span>`, 'ag-change is-undoline'); say(msg + '.');
   const q = A.picked ? plan() : null; if(!A.picked){ closeOpen(); askRoles(); } else if(o && o.id === 'review' && !q && !missing().length) refreshReview(); else if(o && q && o.id === q.id && !o.change && JSON.stringify(o.fields) === JSON.stringify(q.fields)) renderTrack(); else { closeOpen(); next(); } }
 /* a Change that ends with no change: the value stays. A bonus or equity row opened from None goes back to None */
-function keepIt(){ const A = ag(), o = A.open; if(o && A.reopen === o.id){ const s = A.undo.pop(); if(s) restore(s); } A.reopen = null; closeOpen(); bubble('Keep as it is'); next(); }
+function keepIt(){ const A = ag(), o = A.open; if(o && A.reopen === o.id){ const s = A.undo.pop(); if(s) restore(s); } else if(o && o.change && o.snap && o.snap !== snapshot()) restore(o.snap); A.reopen = null; closeOpen(); bubble('Keep as it is'); next(); }
 function skip(){ const A = ag(), o = A.open; if(!o){ next(); return; } if(o.change){ keepIt(); return; }
   const ks = o.fields || ({type:['empType'], loc:['location'], state:['state'], office:['workplace'], ot:['duties'], conf:[o.k], prop:['amount'], extras:[]}[o.id] || []);
-  if(o.id === 'extras') A.extrasDone = true; ks.forEach(k => A.skip.add(k)); closeOpen(); bubble('Skip for now'); next(); }
+  if(o.id === 'extras') A.extrasDone = true; ks.forEach(k => A.skip.add(k)); closeOpen(); { const b = bubble('Skip for now'); if(!['review', 'left', 'list', 'confirm', 'roles'].includes(o.id)) { canChange(b, {id:o.id, fields:o.fields, k:o.k}, 'Skip for now'); const c = b.querySelector('.ag-again'); if(c) c.dataset.u = '-1'; } } next(); }
 function understand(raw){ understand0(raw); reAsk(); }
 function understand0(raw){
   const A = ag(), t = raw.trim(); if(!t) return; const l = t.toLowerCase().replace(/[.?!,;:\s]+$/, ''), o = A.open;
@@ -661,10 +674,12 @@ function understand0(raw){
   if(/^(send( it| offer| the offer| this offer)?( now)?|review( offer)?)$/.test(l)){ if(o && o.id === 'review') typedReview(); else if(!missing().length){ wrapUp(); } else { showLeft(); } return; }
   if(/^(ok|okay|looks good|lgtm|yes|sounds good)$/.test(l) && o && o.id === 'review'){ typedReview(); return; }
   if(/^undo\b/.test(l)){ undoLast(); return; }
-  if(/start over|different role/.test(l)){ closeOpen(); const el = turn('Start over? This clears the offer.', `<div class="ag-chips">${chip('restart', 'Start over')}${chip('keep', 'Keep this offer')}</div>`); A.open = {id:'confirm', el}; focusNext(el); return; }
+  if(/start over|different role/.test(l)){ confirmRestart(); return; }
   if(/use the form|switch to (the )?form|^form$/.test(l)){ setMode('form'); return; }
   if(/what'?s (left|missing)|what is (left|missing)/.test(l)){ showLeft(); return; }
-  if(/^(skip|later|skip (it|this|for now))\.?$/.test(l) || /^i don'?t know\.?$/.test(l) || /^not sure\.?$/.test(l) || /^i'?m not sure\.?$/.test(l)){ if(o && o.id === 'ot' && /sure|know/.test(l)){ answer(o, 'unsure', "I'm not sure"); return; } skip(); return; }
+  if(/^(skip|later|skip (it|this|for now))\.?$/.test(l) || /^i don'?t know\.?$/.test(l) || /^not sure\.?$/.test(l) || /^i'?m not sure\.?$/.test(l)){ if(o && o.id === 'ot' && /sure|know/.test(l)){ answer(o, o.walk ? 'unsure' : 'walk', "I'm not sure"); return; } skip(); return; }
+  if(o && o.id === 'ot' && !/\?\s*$/.test(t) && !/^(?:what|why|how|explain|define|tell me|should|can|could|would|will|when|where|who)\b/.test(l) && !/^(?:is|are|does|do)\s+(?!not\b|exempt\b|non\b|get\b)/.test(l) && otSays(t, o.walk) && answerOpen(o, t, l)) return;
+  if(/^(?:never\s?mind|nvm|cancel|go back)$/.test(l) && o && !['roles', 'review', 'left', 'list', 'confirm'].includes(o.id)){ if(o.change) keepIt(); else turn('Okay. This one is still open.'); return; }
   if(/should (this|it|he|she|they|i|we)\b.*(exempt|contractor|employee|pay|overtime)|is (she|he|they|this person) (a )?(contractor|exempt|employee)|what should i pay|how much should|which (one )?(is best|should)|recommend/.test(l)){
     turn("That's your call, so I won't pick one.", /exempt|overtime/.test(l) ? sourceCard('ot') : /contractor|employee/.test(l) ? sourceCard('con') : /pay|salary/.test(l) && S.posting && S.posting.min ? `<p class="ag-quiet">Posted range: ${rangeText(S.posting)}</p>` : ''); if(o && !['roles', 'review', 'left', 'list', 'confirm'].includes(o.id)){ const q = {...o}; delete q.el; ask(q); } return; }
   if(/^(what is|what's|whats|what are|what does|explain|define|meaning of|why is)\b/.test(l) && !/\b(the|my)\s+(salary|pay|start|title|email|bonus)\b/.test(l) && explain(t)) return;
@@ -682,7 +697,7 @@ function understand0(raw){
   if(/^(remove|no|drop) (the )?equity/.test(l)){ toggleOff('equity'); settle(); return; }
   { const m = l.match(/add (?:an? )?(.*)bonus/); if(m){ const mo = parseMoney(m[1]); if(mo) change('bonus', mo.val); else { pushUndo(snapshot()); S.f.bonusOpen = true; A.extrasDone = true; onCommit('bonusOpen'); askField('bonus'); } settle(); return; } }
   { const m = l.match(/add equity\s*(.*)/); if(m){ if(m[1]){ change('equity', t.slice(t.toLowerCase().indexOf('equity') + 7).trim()); settle(); } else { pushUndo(snapshot()); S.f.equityOpen = true; A.extrasDone = true; onCommit('equityOpen'); askField('equity'); } return; } }
-  { const m = l.match(/remote in (.+)/); if(m){ const s = parseState(m[1]); if(s.length === 1){ if(S.f.location !== 'Remote') change('location', 'Remote'); S.f.workplace = ''; change('state', s[0][0]); settle(); return; } if(s.length > 1){ stateChoice(s); return; } } }
+  { const m = l.match(/remote,?\s+(?:in|from)\s+(.+)/); if(m){ const s = parseState(m[1]); if(s.length === 1){ if(S.f.location !== 'Remote') change('location', 'Remote'); S.f.workplace = ''; change('state', s[0][0]); settle(); return; } if(s.length > 1){ stateChoice(s); return; } } }
   { const m = l.match(/reports? to (.+)/); const p = m && parsePerson(m[1]); if(p){ change('reportsTo', p); settle(); return; } }
   { const m = t.match(/^(?:please\s+)?(?:change|set|make|update|move)\s+(?:the\s+|my\s+|her\s+|his\s+|their\s+)?(.+?)\s+to\s+(.+)$/i); if(m){ const F = FIELD_WORDS.find(x => x[0].test(m[1].toLowerCase())); if(F && setField(F[1], m[2])) return; } }
   if(/^(change|set|make|move|update|actually)\b|^(start|pay|salary|expires?)\b/.test(l)){
@@ -703,25 +718,40 @@ function settle(){ const A = ag(), q = plan(); if(!A.open || (A.open.id === 'rev
 function showLeft(){ const miss = missing(), A = ag(); if(!miss.length){ wrapUp(); return; } closeOpen(); const el = turn('These are still open.', `<div class="ag-rows">${miss.map(m => row('field:' + m.k, m.msg)).join('')}</div>`, {count:miss.length}); A.open = {id:'left', el}; focusNext(el); }
 function valueTurn(l, v, k){ turn(`${l}: ${v}.`, `<div class="ag-chips">${chip('field:' + k, 'Change')}</div>`); }
 function stateChoice(list){ const A = ag(); closeOpen(); const el = turn('Which one?', `<div class="ag-rows">${list.map(([c, n]) => row('ans:state:' + c, n)).join('')}</div>`, {count:list.length}); A.open = {id:'state', el, change:true}; focusNext(el); }
+/* what a typed overtime answer says: 'yes' gets overtime, 'no' doesn't, '' couldn't tell. Negation counts wherever it sits in the sentence */
+function otSays(raw, walk){ const s = raw.toLowerCase().replace(/[.?!,;:]+/g, ' ').replace(/’/g, "'").replace(/over\s+time/g, 'overtime').replace(/\bot\b/g, 'overtime').replace(/\s+/g, ' ').trim(), neg = /\b(?:no|not|never|none|without|nope|nah)\b|n't\b/.test(s);
+  if(/\bnon[\s-]?exempt\b/.test(s)) return 'yes'; if(/\bexempt\b/.test(s)) return neg ? 'yes' : 'no'; if(/\bineligible\b/.test(s)) return 'no';
+  if(/\b(?:overtime|eligible)\b/.test(s)){ if(/^(?:no|nope|nah)\b/.test(s) && /\b(?:gets?|is|does|eligible)\b/.test(s) && !/n't\b|\bnot\b/.test(s)) return ''; return neg ? 'no' : 'yes'; }
+  if(walk) return ''; if(/^(?:y|yes|yeah|yep|yup)\b|^(?:she|he|they) (?:does|do|gets?)$/.test(s)) return 'yes'; if(/^(?:n|no|nope|nah)\b|^(?:she|he|they) (?:doesn't|does not|don't|do not)$/.test(s)) return 'no'; return ''; }
 function answerOpen(o, t, l){
   const A = ag(), id = o.id, go = (v, label) => { answer(o, v, label); return true; }, short = l.split(/\s+/).length <= 4, has = w => short && near(l, w);
-  if(id === 'type'){ if(/\bw[\s-]?2\b/.test(l) && !/part|full/.test(l)){ closeOpen(); const el = turn('Full-time or part-time?', `<div class="ag-rows">${[['ft', 'Full-time', 'briefcase'], ['pt', 'Part-time', 'clock-3']].map(([v, n, i]) => row('ans:type:' + v, n, {icon:i, right:'W-2', keep:true, lab:`${n} W-2`})).join('')}</div>`, {count:2}); A.open = {...o, el}; renderHelpers(['skip']); focusNext(el); return true; } if(/full/.test(l) || has('full')) return go('ft', 'Full-time W-2'); if(/part/.test(l) || has('part')) return go('pt', 'Part-time W-2'); if(/contract|1099/.test(l) || has('contractor')) return go('c', 'Contractor 1099'); }
-  if(id === 'loc'){ if(/remote/.test(l) || has('remote')) return go('Remote', 'Remote'); if(/hybrid/.test(l) || has('hybrid')) return go('Hybrid', 'Hybrid'); if(/on.?site|office/.test(l) || has('onsite')) return go('On-site', 'On-site'); }
+  if(id === 'type'){ if(/\bfreelanc|\bconsult|\bindependent\b/.test(l)) return go('c', 'Contractor 1099'); if(/\bft\b/.test(l)) return go('ft', 'Full-time W-2'); if(/\bpt\b/.test(l)) return go('pt', 'Part-time W-2'); if((/\bw[\s-]?2\b|\bemployee\b|\bpermanent\b|\bstaff\b/.test(l)) && !/part|full/.test(l)){ closeOpen(); const el = turn('Full-time or part-time?', `<div class="ag-rows">${[['ft', 'Full-time', 'briefcase'], ['pt', 'Part-time', 'clock-3']].map(([v, n, i]) => row('ans:type:' + v, n, {icon:i, right:'W-2', keep:true, lab:`${n} W-2`})).join('')}</div>`, {count:2}); A.open = {...o, el}; renderHelpers(['skip']); focusNext(el); return true; } if(/full/.test(l) || has('full')) return go('ft', 'Full-time W-2'); if(/part/.test(l) || has('part')) return go('pt', 'Part-time W-2'); if(/contract|1099/.test(l) || has('contractor')) return go('c', 'Contractor 1099'); }
+  if(id === 'loc'){ if(/remote/.test(l) || has('remote')) return go('Remote', 'Remote'); if(/hybrid/.test(l) || has('hybrid')) return go('Hybrid', 'Hybrid'); if(/on.?site|office|\bin[\s-]?person\b/.test(l) || has('onsite')) return go('On-site', 'On-site'); if(/\bwfh\b|from home/.test(l)) return go('Remote', 'Remote'); }
   if(id === 'state'){ const s = parseState(t); if(s.length === 1) return go(s[0][0], s[0][1]); if(s.length > 1){ stateChoice(s); return true; } if(l.split(/\s+/).length > 2) return false; turn(`I don't know a state called "${t.slice(0, 40)}".`); return true; }
-  if(id === 'office'){ const hit = OFFICES.find(x => l.includes(x.name.toLowerCase().split(' ')[0]) || /new york|ny/.test(l)); if(hit) return go(hit.id, hit.name); }
+  if(id === 'office'){ const hit = OFFICES.find(x => l.includes(x.name.toLowerCase().split(' ')[0]) || /new york|ny/.test(l)); if(hit) return go(hit.id, hit.name); if(/remote/.test(l)){ change('location', 'Remote'); settle(); return true; } if(short && OFFICES.length === 1){ turn(`${OFFICES[0].name} is the only office set up.`); return true; } }
   if(id === 'extras'){ if(/both/.test(l) || has('both')) return go('both', 'Both'); if(/neither|none|no\b/.test(l) || has('neither')) return go('none', 'Neither'); if(/bonus/.test(l) || has('bonus')) return go('bonus', 'Signing bonus'); if(/equity/.test(l) || has('equity')) return go('equity', 'Equity'); }
-  if(id === 'ot'){ const H = ot().mode === 'hourly'; if(H){ if(/^y/.test(l)) return go('software', 'Yes'); if(/^n/.test(l)) return go('none', 'No'); } else { const hit = (ot().opts || []).find(v => DUTIES[v].toLowerCase().includes(l) || l.includes(v) || (v === 'software' && /engineer|software|programmer/.test(l)) || (v === 'manage' && /manag/.test(l)) || (v === 'none' && /none/.test(l))); if(hit) return go(hit, DUTIES[hit]); } }
-  if(id === 'conf'){ const c = S.conf[o.k], d = parseDate(t); const i = c.opts.findIndex(x => (d && x.val === d) || String(x.val).toLowerCase() === l); if(i >= 0){ resolveConf(o.k, i); return true; } }
+  if(id === 'invite'){ if(/^y/.test(l) || /\binvite\b/.test(l) && !/\b(no|not|don'?t)\b/.test(l)) return go('yes', 'Yes'); if(/^n/.test(l) || /\b(not|don'?t)\b/.test(l)) return go('no', 'No'); }
+  if(id === 'pg'){ if(/salar/.test(l)) return go('US Salaried', 'US Salaried'); if(/hour/.test(l)) return go('US Hourly', 'US Hourly'); }
+  if(id === 'style'){ if(/concise|short/.test(l)) return go('Concise', 'Concise'); if(/standard|full/.test(l)) return go('Standard', 'Standard'); }
+  if(id === 'ot'){ const H = ot().mode === 'hourly', says = otSays(t, o.walk);
+    if(ot().mode === 'auto'){ if(says || /^(?:y|n)/.test(l)){ turn(`${ot().short || ot().why} To change that, change the pay.`); return true; } return false; }
+    if(says) return go(says === 'yes' ? 'none' : 'exempt', says === 'yes' ? 'Yes' : 'No');
+    if(H){ if(/^y/.test(l)) return go('software', 'Yes'); if(/^n/.test(l)) return go('none', 'No'); } else if(/\b(?:law|medicine|accounting|advanced|study)\b/.test(l) && (ot().opts || []).includes('study')) return go('study', DUTIES.study); else if(/\boffice\b|\badmin/.test(l) && (ot().opts || []).includes('admin')) return go('admin', DUTIES.admin); else if(/^(?:y|yes|yeah|yep|yup|n|no|nope|nah)\b/.test(l)){ turn(`Pick one of these, or tell me if ${who() || 'this person'} gets overtime pay.`); return true; } else { const hit = (ot().opts || []).find(v => (l.length >= 4 && DUTIES[v].toLowerCase().includes(l)) || l.split(/\W+/).includes(v) || (v === 'software' && /engineer|software|programmer/.test(l)) || (v === 'manage' && /manag/.test(l)) || (v === 'none' && /none/.test(l))); if(hit) return go(hit, DUTIES[hit]); } }
+  if(id === 'conf'){ const c = S.conf[o.k], d = parseDate(t), ws = l.split(/\W+/); let i = c.opts.findIndex(x => (d && x.val === d) || String(x.val).toLowerCase() === l); if(i < 0 && /\b(?:first|1st)\b/.test(l)) i = 0; if(i < 0 && /\b(?:second|2nd|other)\b/.test(l)) i = 1; if(i < 0) i = c.opts.findIndex(x => (x.label || '').toLowerCase().split(/\W+/).some(w => w.length > 3 && ws.includes(w))); if(i >= 0){ resolveConf(o.k, i); return true; }
+    if(d && ['startDate', 'endDate', 'expiry'].includes(o.k)){ pushUndo(snapshot()); delete S.conf[o.k]; S.f[o.k] = d; delete S.src[o.k]; S.typed[o.k] = true; onCommit(o.k, S.f.empType); renderTrack(); closeOpen(); canChange(bubble(sdt(d)), qFor(o.k), sdt(d)); next(); return true; } }
   if(id === 'prop' && /use|yes/.test(l)){ useProp(); return true; }
   if(id === 'pay' || id === 'prop'){ const m = parseMoney(l); if(m){ const u = m.unit || S.f.payType; if(!u){ S.f.amount = m.val; turn('A year or an hour?', `<div class="ag-chips">${chip('unit:Salary', 'A year')}${chip('unit:Hourly', 'An hour')}</div>`); return true; }
       { const e = payBad(num(m.val), u); if(e){ turn(e); return true; } } if(S.prop.amount) delete S.prop.amount;
-      pushUndo(o.snap || snapshot()); if(S.f.payType !== u) set('payType', u); set('amount', m.val); closeOpen(); bubble(payText()); rangeNote(); next(); return true; } }
+      pushUndo(o.snap || snapshot()); if(S.f.payType !== u) set('payType', u); set('amount', m.val); closeOpen(); canChange(bubble(payText()), qFor('amount'), payText()); rangeNote(); next(); return true; } }
   if(id === 'who'){ const em = t.match(/[^\s,<]+@[^\s,>]+/), nm = t.replace(em ? em[0] : '', '').replace(/[,<>]/g, ' ').trim().split(/\s+/).filter(Boolean), named = nm.length >= 2 && /^[A-Z]/.test(nm[0]);
-    if(named || em){ pushUndo(o.snap || snapshot()); if(named){ set('first', nm[0]); set('last', nm.slice(1).join(' ')); } if(em) set('email', em[0]); if(em && !validEmail()){ turn('Enter an email address in the correct format, like name@example.com'); return true; } closeOpen(); bubble(t); next(); return true; } }
-  if(id === 'job' || id === 'expiry'){ const d = parseDate(t), ks = o.fields || []; const k = ks.find(x => ['startDate', 'endDate', 'expiry'].includes(x) && !S.f[x]) || ks.find(x => ['startDate', 'endDate', 'expiry'].includes(x)); if(d && k){ if(k === 'expiry' && new Date(d + 'T00:00') < TODAY){ turn("The offer can't expire before today."); return true; } if(k === 'endDate' && S.f.startDate && d <= S.f.startDate){ turn('The contract must end after it starts.'); return true; } pushUndo(o.snap || snapshot()); set(k, d); bubble(sdt(d)); reconcile(); return true; } const p = parsePerson(t); if(p && ks.includes('reportsTo')){ pushUndo(o.snap || snapshot()); set('reportsTo', p); bubble(p); reconcile(); return true; } if(k && /\d|date|year|month|week|today|tomorrow|next|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec/.test(l)){ turn('I need a real date for that, like June 15.'); return true; } }
+    if(named || em){ pushUndo(o.snap || snapshot()); if(named){ set('first', nm[0]); set('last', nm.slice(1).join(' ')); } if(em) set('email', em[0]); if(em && !validEmail()){ turn('Enter an email address in the correct format, like name@example.com'); return true; } closeOpen(); canChange(bubble(t), {id:'who', fields:BY.who}, t); next(); return true; } }
+  if(o.change && (id === 'note' || (id === 'job' && ['title', 'department'].includes((o.fields || []).join())))){ const k = id === 'note' ? 'note' : o.fields[0]; pushUndo(o.snap || snapshot()); set(k, t.trim()); closeOpen(); canChange(bubble(t.trim()), o, t.trim()); next(); return true; }
+  if(id === 'who' && o.change && /^[\p{L}][\p{L}' -]*$/u.test(t.trim())){ const p = t.trim().split(/\s+/), ks = o.fields; pushUndo(o.snap || snapshot()); if(ks.includes('first')) set('first', p[0]); if(ks.includes('last')) set('last', ks.includes('first') ? (p.slice(1).join(' ') || S.f.last) : t.trim()); closeOpen(); canChange(bubble(t.trim()), o, t.trim()); next(); return true; }
+  if(id === 'job' || id === 'expiry'){ const d = parseDate(t), ks = o.fields || []; const k = ks.find(x => ['startDate', 'endDate', 'expiry'].includes(x) && !S.f[x]) || ks.find(x => ['startDate', 'endDate', 'expiry'].includes(x)); if(d && k){ if(k === 'expiry' && new Date(d + 'T00:00') < TODAY){ turn("The offer can't expire before today."); return true; } if(k === 'endDate' && S.f.startDate && d <= S.f.startDate){ turn('The contract must end after it starts.'); return true; } pushUndo(o.snap || snapshot()); set(k, d); canChange(bubble(sdt(d)), qFor(k), sdt(d)); reconcile(); return true; } const p = parsePerson(t); if(p && ks.includes('reportsTo')){ pushUndo(o.snap || snapshot()); set('reportsTo', p); canChange(bubble(p), qFor('reportsTo'), p); reconcile(); return true; } if(k && /\d|date|year|month|week|today|tomorrow|next|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec/.test(l)){ turn('I need a real date for that, like June 15.'); return true; } }
   if(id === 'pay' && !parseMoney(l) && (/\d/.test(l) || short)){ turn('I need a number for the pay, like 150,000.'); return true; }
-  if(id === 'bonus'){ const m = parseMoney(l); if(m && num(m.val) <= 0){ turn('Enter a bonus amount above 0.'); return true; } if(m){ pushUndo(o.snap || snapshot()); set('bonus', m.val); bubble('$' + m.val); reconcile(); return true; } }
-  if(id === 'equity'){ pushUndo(o.snap || snapshot()); set('equity', t); closeOpen(); bubble(t); next(); return true; }
+  if((id === 'bonus' || id === 'equity') && /^(?:none|no|nothing|remove(?: it)?|drop(?: it)?)$/.test(l)){ toggleOff(id); closeOpen(); next(); return true; }
+  if(id === 'bonus'){ const m = parseMoney(l); if(m && num(m.val) <= 0){ turn('Enter a bonus amount above 0.'); return true; } if(m){ pushUndo(o.snap || snapshot()); set('bonus', m.val); const mo = !/\bnot repaid\b/.test(l) && l.match(/(\d+)\s*months?\b/); if(mo){ S.f.bonusRepay = true; onCommit('bonusRepay'); set('bonusMonths', mo[1]); } const said = `${disp('bonus', S.f.bonus)}${mo ? `, repaid within ${mo[1]} month${+mo[1] === 1 ? '' : 's'}` : ''}`; canChange(bubble(said), qFor('bonus'), said); reconcile(); return true; } }
+  if(id === 'equity'){ pushUndo(o.snap || snapshot()); set('equity', t); closeOpen(); canChange(bubble(t), qFor('equity'), t); next(); return true; }
   return false;
 }
 
@@ -757,7 +787,7 @@ function returnFromForm(){ const A = ag(); if(!A.formLeft) return; A.formLeft = 
   const was = JSON.parse(A.snap)[0], f = S.f, diff = Object.keys(f).filter(k => was[k] !== f[k] && !['duties', 'payrollGroup', 'bonusOpen', 'equityOpen', 'work'].includes(k));
   if(!A.picked && diff.length) A.picked = true;
   renderTrack();
-  if(diff.length){ const rows = diff.slice(0, 4).map(k => `${LABEL(k)}: ${disp(k, f[k])}`).join(', '); line(`${ic('check')}<span>Picked up your changes from the form. ${h(rows)}</span>`, 'ag-change'); say('Picked up your changes from the form.'); if(A.open && A.open.id !== 'roles'){ const q = plan(); if(!q || q.id !== A.open.id){ const b = A.open.el.querySelector('.ag-block'); if(b) line(`<span>Answered in the form</span>`, 'ag-quietline'); } } }
+  const styled = JSON.parse(A.snap)[3] !== S.style; if(diff.length || styled){ const rows = [...diff.slice(0, 4).map(k => `${LABEL(k)}: ${disp(k, f[k])}`), ...(styled ? [`Letter style: ${S.style}`] : [])].join(', '); line(`${ic('check')}<span>Picked up your changes from the form. ${h(rows)}</span>`, 'ag-change'); say('Picked up your changes from the form.'); if(A.open && A.open.id !== 'roles'){ const q = plan(); if(!q || q.id !== A.open.id){ const b = A.open.el.querySelector('.ag-block'); if(b) line(`<span>Answered in the form</span>`, 'ag-quietline'); } } }
   if(A.picked) reconcile();
 }
 function onView(v){ const A = ag(), inPrev = document.body.classList.contains('view-letter'), paneEls = () => S.mode === 'agent' ? [$('#agentPane')] : [$('#formPane')], letterEls = () => [$('#letterPane')];
@@ -777,19 +807,20 @@ function mount(){
 }
 function bind(pane){
   pane.addEventListener('click', e => {
-    const t = e.target.closest('[data-ag]'); if(!t) return; if(e.detail > 1 && /^(ans|role|conf|prop|blank|send|skip|keepit)/.test(t.dataset.ag)) return; const A = ag(); A.how = e.detail === 0 ? 'key' : 'pointer'; const [a, ...rest] = t.dataset.ag.split(':'), arg = rest.join(':'), o = A.open;
-    if(a === 'latest'){ A.stick = true; A.toEnd = true; const e2 = Mo.el(); if(e2){ const y0 = e2.scrollTop, y1 = e2.scrollHeight - e2.clientHeight, ms = instant() ? 0 : Motion.ms('--d-slower'), ease = bezier('--ease-move'), t0 = performance.now(); const step = n => { const p = ms ? Math.min(1, (n - t0) / ms) : 1; e2.scrollTop = y0 + (y1 - y0) * ease(p); A.lastSet = e2.scrollTop; if(p < 1) requestAnimationFrame(step); else Mo.pin(); }; requestAnimationFrame(step); } Mo.latest(); return; }
+    const t = e.target.closest('[data-ag]'); if(!t) return; if(e.detail > 1 && /^(ans|role|conf|prop|blank|send|skip|keepit|again|field)/.test(t.dataset.ag)) return; const A = ag(); A.how = e.detail === 0 ? 'key' : 'pointer'; const [a, ...rest] = t.dataset.ag.split(':'), arg = rest.join(':'), o = A.open;
+    if(a === 'latest'){ A.stick = true; A.toEnd = true; const e2 = Mo.el(); if(e2){ const y0 = e2.scrollTop, y1 = e2.scrollHeight - e2.clientHeight, ms = instant() ? 0 : Motion.ms('--d-slower'), ease = bezier('--ease-move'), t0 = performance.now(); const step = n => { const p = ms ? Math.min(1, (n - t0) / ms) : 1; e2.scrollTop = y0 + (y1 - y0) * ease(p); A.lastSet = e2.scrollTop; if(p < 1) requestAnimationFrame(step); else { Mo.pin(); Mo.latest(); } }; requestAnimationFrame(step); } Mo.latest(); return; }
     if(a === 'role'){ pickRole(arg, {src:t}); return; }
     if(a === 'more'){ setMore(!A.showAll); return; }
     if(a === 'ans'){ const [q, v] = arg.split(':'); if(!o) return; const lb = t.querySelector('.ag-row-l'), ch = t.querySelector('.ag-chip-l'); answer(o.id === q ? o : {...o, id:q}, v, t.dataset.lab || (lb ? lb.firstChild.textContent : ch ? ch.textContent : t.textContent.trim()), t); return; }
     if(a === 'blank'){ startBlank(); return; } if(a === 'retry-roles'){ closeOpen(); askRoles(); return; }
+    if(a === 'again'){ again(arg); return; }
     if(a === 'field'){ askField(arg); return; } if(a === 'step'){ if(!A.busy) openStep(arg); return; }
     if(a === 'undo'){ undoLast(); return; } if(a === 'skip'){ skip(); return; } if(a === 'keepit'){ keepIt(); return; }
     if(a === 'say'){ A.echo = true; A.echoEl = null; bubble(t.textContent.trim()); understand(arg); A.echo = false; A.echoEl = null; return; }
     if(a === 'file'){ attachFile(); return; } if(a === 'open-review'){ openReview(); return; }
     if(a === 'restart'){ const m = S.mode; fresh(); S.mode = m; go('offer', {noFocus:true, animate:false}); return; } if(a === 'keep'){ closeOpen(); bubble('Keep this offer'); next(); return; }
     if(a === 'conf'){ const [k, i] = arg.split(':'); resolveConf(k, i); return; } if(a === 'prop'){ if(arg === 'use') useProp(); else { delete S.prop.amount; refresh(null, true); closeOpen(); next(); } return; }
-    if(a === 'unit'){ set('payType', arg); closeOpen(); bubble(payText()); next(); return; }
+    if(a === 'unit'){ set('payType', arg); closeOpen(); canChange(bubble(payText()), qFor('amount'), payText()); next(); return; }
     if(a === 'tool'){ if(t.disabled) return; const w = t.parentElement, f = w.classList.toggle('is-folded'); t.setAttribute('aria-expanded', String(!f)); return; }
   });
   const lit = t => { $$('#letter .is-lit').forEach(x => x.classList.remove('is-lit')); if(!t || !matchMedia('(hover: hover)').matches) return; const st = t.dataset.ag && STEPS.find(s => 'step:' + s.id === t.dataset.ag), ks = st ? st.keys : (t.dataset.keys || '').split(' ').filter(Boolean); ks.forEach(k => $$(`#letter [data-v="${k}"]`).forEach(x => x.classList.add('is-lit'))); };
@@ -802,7 +833,7 @@ function bind(pane){
     const c = e.target.closest('[data-card]'); if(c && A.open && A.open.fields){ A.how = 'key'; submitCard(A.open, c); } });
   pane.addEventListener('input', e => { const t = e.target;
     if(t.id === 'ag-input'){ t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; $('#ag-go').classList.toggle('has-text', !!t.value.trim()); $$('.ag-phs').forEach(x => x.classList.toggle('is-hidden', !!t.value)); if(ag().open && ag().open.id === 'roles') filterRoles(t.value); }
-    if(t.id === 'ag-state-q'){ $('#ag-state-l').innerHTML = stateRows(t.value); }
+    if(t.id === 'ag-state-q'){ const o = ag().open; $('#ag-state-l').innerHTML = stateRows(t.value, o && o.change ? S.f.state : ''); }
     if(t.classList && t.classList.contains('ag-grow')){ t.style.height = 'auto'; t.style.height = `${t.scrollHeight + 2}px`; }
     if(t.name === 'payType' && $('.ag-unit')) setTimeout(() => { const u = $('.ag-unit'); if(u) u.textContent = unitWord(); }, 0); });
   pane.addEventListener('change', e => { if(e.target.name === 'payType'){ const u = $('.ag-unit'); if(u) u.textContent = unitWord(); } });
@@ -851,5 +882,5 @@ setTimeout(() => {
   preset(new URLSearchParams(location.search).get('state') || 'start');
 }, 0);
 rvBindOnce();
-return {mount, afterGo, setMode, onView, askField, openReview};
+return {mount, afterGo, setMode, onView, askField, openReview, onStyle};
 })();

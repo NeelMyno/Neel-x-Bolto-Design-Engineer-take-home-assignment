@@ -193,6 +193,7 @@ const DUTIES = {
   admin:'Office work on running the business, where they make independent decisions on important matters',
   study:'Work that needs advanced study, like law, medicine or accounting',
   none:'None of these',
+  exempt:"Doesn't get overtime pay",
   unsure:"I'm not sure"
 };
 /* Info-tip texts: spec 17 §5, word for word */
@@ -321,6 +322,7 @@ function otFinal(){
   if(o.mode !== 'hourly' && o.mode !== 'salary') return null;
   const d = S.f.duties;
   if(!d || d === 'unsure') return null;
+  if(d === 'exempt') return true;  /* the employer's plain call, made in the agent */
   if(o.mode === 'hourly') return d === 'software' ? true : (d === 'none' ? false : null);
   if(!o.opts.includes(d)) return null;
   return d !== 'none';
@@ -673,6 +675,7 @@ function hireHTML(){
     block = floorBar(o) + `<p class="result neutral">${I('clock-3')}<span>Gets overtime pay (non-exempt).</span></p><p class="sr">${o.why}</p>`;
   } else {
     const opts = o.mode === 'hourly' ? [['software', 'Yes'], ['none', 'No'], ['unsure', "I'm not sure"]] : o.opts.map(v => [v, DUTIES[v]]);
+    if(S.f.duties === 'exempt') opts.push(['exempt', DUTIES.exempt]); /* said in the agent: the form shows it, and it can be changed here */
     const q = o.mode === 'hourly' ? `Does ${esc(who() || 'this person')} work as a software engineer, programmer or systems analyst?` : `What is ${esc(poss())}main work?`;
     /* v2 (15-v2 log, Overtime; decided: evidence only): the posting's own duties sentence, never an answer, nothing selected */
     const ev = S.posting ? `<div class="evidence" id="ot-ev"><p class="from">${I('file-text')}<span>From the job posting</span></p><blockquote>“${esc(S.posting.duties)}”</blockquote><p class="hint">A job title or posting doesn't decide this.</p></div>` : '';
@@ -1432,10 +1435,10 @@ document.addEventListener('focusout', e => { if(e.target.id === 'atsQ') setTimeo
 function recheckOT(){
   const f = S.f;
   if(!f.duties || S.otBasis === basisKey()) return false;
-  const o = ot(), opts = o.mode === 'hourly' ? ['software', 'none', 'unsure'] : o.mode === 'salary' ? o.opts : [];
+  const o = ot(), opts = o.mode === 'hourly' ? ['software', 'none', 'exempt', 'unsure'] : o.mode === 'salary' ? [...o.opts, 'exempt'] : [];
   if(o.mode === 'wait') return false; /* the question isn't shown yet; judge the answer once pay and place are complete */
   if(o.mode === S.otMode && opts.includes(f.duties)){ S.otBasis = basisKey(); return false; }
-  const prev = S.otMode, was = prev === 'hourly' ? {software:'Yes', none:'No', unsure:"I'm not sure"}[f.duties] : DUTIES[f.duties];
+  const prev = S.otMode, was = prev === 'hourly' ? {software:'Yes', none:'No', exempt:DUTIES.exempt, unsure:"I'm not sure"}[f.duties] : DUTIES[f.duties];
   f.duties = ''; S.otBasis = ''; S.otMode = '';
   say(o.mode === 'auto' || o.mode === 'na' ? `Your overtime answer "${was}" was cleared: it no longer applies at this pay and place.`
     : prev && prev !== o.mode ? `Your overtime answer "${was}" was cleared: the overtime question changed with the pay type. Answer it again.`
@@ -1473,7 +1476,7 @@ function bindOffer(){
   };
   m.onchange = e => {
     const el = e.target;
-    if(el.name === 'style'){ S.style = el.value; updateLetter(); say('Letter style: ' + el.value + '.'); return; }
+    if(el.name === 'style'){ if(S.mode === 'agent' && S.screen === 'offer') Agent.onStyle(el.value); else { S.style = el.value; updateLetter(); } say('Letter style: ' + el.value + '.'); return; }
     if(el.name === 'view'){ Agent.onView(el.value); return; }
     if(el.name === 'mode'){ Agent.setMode(el.value); return; }  /* arrows on the switch keep focus on it */
     const k = el.name; if(!k || !(k in S.f)) return;
@@ -1562,7 +1565,8 @@ function otReview(){
   const r = (t, why) => `${t}<span class="why">${why}</span>`;
   if(o.mode === 'auto'){ const key = f.payType === 'Hourly' ? 'hourly' : 'salary';
     return r(otWords(false), `Bolto rule: ${money(amt)}${unit} is below ${floorWhose(key)} ${money(fl[key])} floor`); }
-  if(d === 'none') return r(otWords(false), 'You chose: none of these');
+  if(d === 'none') return r(otWords(false), 'You chose it');
+  if(d === 'exempt') return r(otWords(true), 'You chose it');
   const key = o.mode === 'hourly' ? 'hourly' : d === 'software' ? 'comp' : (d === 'manage' || d === 'admin') ? 'mgr' : 'salary';
   return r(otWords(otFinal()), `You chose: ${DSHORT[d] || d} · ${money(amt)}${unit} clears ${floorWhose(key)} ${money(fl[key])} floor`);
 }

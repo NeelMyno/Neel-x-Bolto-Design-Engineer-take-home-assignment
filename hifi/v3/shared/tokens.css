@@ -160,7 +160,9 @@
 
   /* round 3 (spec 18): the panel, the summary table, the Review modal */
   --ag-sum-a: 80px;           /* summary table: the space held for Change, with its cell padding */
-  --ag-rvm: 360ms;            /* A25: the paper's flight. Close plays it back 20% faster (A28) */
+  --ag-rvm: 240ms;            /* A25: the Review modal's fade and rise. Close plays it back 20% faster (A28) */
+  --rvm-w: 1200px;            /* the Review modal: the letter at its printed width, and the email beside it */
+  --rvm-side: 380px;          /* the email column */
   --ag-prog-h: 2px;           /* A26: the reading bar */
   --scrim: rgba(26, 26, 26, 0.4);
 }
