@@ -99,6 +99,7 @@
 .hx-footer:has(.approve-ft) .hx-footer-in { min-height: 72px; padding-top: var(--s3); padding-bottom: var(--s3); }
 body:has(.approve-ft) .rv { padding-bottom: calc(var(--ft-h, 72px) + var(--s6)); }
 @media (max-width: 768px) {
+  .chips { -webkit-mask-image: linear-gradient(to right, black calc(100% - var(--s6)), transparent); mask-image: linear-gradient(to right, black calc(100% - var(--s6)), transparent); }
   .hx-footer:has(.approve-ft) .hx-footer-in { flex-wrap: wrap; row-gap: var(--s2); }
   .approve-ft { flex: 1 0 100%; order: -1; text-align: left; font: var(--p4); }
   .approve-ft ~ .btn-send { margin-left: auto; }
@@ -106,6 +107,45 @@ body:has(.approve-ft) .rv { padding-bottom: calc(var(--ft-h, 72px) + var(--s6));
 /* Hifi.focusQuiet: a programmatic focus after a touch tap draws no keyboard ring (r12 B8) */
 [data-quiet-focus]:focus-visible, .acc-btn[data-quiet-focus]:focus-visible::after { outline: none; }
 .affix:has(input[data-quiet-focus]), .seg-opt:has(input[data-quiet-focus]), .ropt:has(input[data-quiet-focus]), .chk:has(input[data-quiet-focus]) .box, .rcard input[data-quiet-focus] + .rcard-box { outline: none; }
+/* key terms: tabular figures on numbers and dates only; tabular widens the hyphen in "full-stack" and "On-site" */
+.kt td { font-variant-numeric: normal; }
+.kt td [data-v="startDate"], .kt td [data-v="endDate"], .kt td [data-v="expiry"], .kt td [data-v="amount"], .kt td [data-v="bonus"], .kt td [data-v="bonusMonths"] { font-variant-numeric: tabular-nums; }
+/* form footer: no baseline gap under the ring, so it centres on the button */
+#countIcon { display: inline-flex; }
+/* a letter that overflows by less than the fade still rests at the full fade and pill, so the pill sits on the clear band */
+@media (min-width: 1024px) and (min-height: 521px) {
+  .lt-scroll { animation-range: max(0px, calc(100% - var(--ag-lt-fade))) 100%; }
+  .hx-letter::after { animation-range: max(0px, calc(100% - var(--ag-lt-fade))) calc(100% - var(--s6)); }
+}
+/* review footer: the hint takes its own row when the buttons leave it too narrow for two lines */
+@media (min-width: 600px) {
+  .rvm-acts { flex-wrap: wrap; }
+  .rvm-acts .rvm-line { flex: 1 1 calc((var(--s16) * 7.5 - 100%) * 999); } /* negative above the threshold (inline), huge below it (own row) */
+}
+/* collapsed section summary: a long email breaks inside the two-line clamp, so it ends on the ellipsis instead of being cut */
+@media (max-width: 1023px) { .acc-sum { overflow-wrap: anywhere; } }
+/* demo menu: taller than its box, so the bottom edge says there is more until the last row is in view */
+@supports (animation-timeline: scroll()) {
+  .demo-pop::after { content: "More below" / ""; position: sticky; display: flex; align-items: flex-end; justify-content: center; bottom: calc(var(--s2) * -1); height: var(--s16); margin: calc(var(--s16) * -1) calc(var(--s2) * -1) calc(var(--s2) * -1); padding-bottom: var(--s2); font: var(--p4); color: var(--ink-2); background: linear-gradient(transparent, var(--surface) 50%); pointer-events: none; opacity: 0; animation: demo-more linear both; animation-timeline: scroll(nearest); }
+  @keyframes demo-more { 0%, 92% { opacity: 1; } 100% { opacity: 0; } }
+}
+/* tracker status: the ring turns into the same check as Saved once the offer is sent */
+.ag-st { display: grid; flex: none; }
+.ag-st > svg { grid-area: 1 / 1; transition: opacity var(--d-fast) var(--ease-enter), transform var(--d-base) var(--ease-pop); }
+.ag-sent-ck { width: var(--s4); height: var(--s4); color: var(--success); opacity: 0; transform: scale(var(--pop-from)); }
+.ag-track.is-sent .ag-prog { opacity: 0; }
+.ag-track.is-sent .ag-sent-ck { opacity: 1; transform: none; }
+/* phones and tablets: the switch keeps its resting gap and the panel keeps its round top while the thread scrolls under. The band and corners hang off the switch, and exactly cover the panel's own top at rest */
+@media (max-width: 1023.98px) {
+  body.ag-mode { --ag-sw-h: calc(var(--s12) + var(--s3)); --ag-edge: calc(max(0px, (100% - var(--s16) * 11.25) / 2) + var(--s4)); } /* the .hx-body column, 720 wide */
+  body.ag-mode .ag-trackw { top: calc(var(--s16) + var(--ag-sw-h) + var(--s4) + 1px); } /* its resting top: header, switch, page gap, panel border */
+  body.ag-mode .hx-switch::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: var(--s4); background: var(--canvas); pointer-events: none; }
+  body.ag-mode .hx-switch::before { content: ""; position: absolute; left: var(--ag-edge); right: var(--ag-edge); top: calc(100% + var(--s4)); height: var(--r-xl); pointer-events: none; background:
+    radial-gradient(circle at 100% 100%, transparent calc(var(--r-xl) - 1.5px), var(--line-2) calc(var(--r-xl) - 1px), var(--line-2) calc(var(--r-xl) - .5px), var(--canvas) var(--r-xl)) 0 0 / var(--r-xl) var(--r-xl) no-repeat,
+    radial-gradient(circle at 0 100%, transparent calc(var(--r-xl) - 1.5px), var(--line-2) calc(var(--r-xl) - 1px), var(--line-2) calc(var(--r-xl) - .5px), var(--canvas) var(--r-xl)) 100% 0 / var(--r-xl) var(--r-xl) no-repeat,
+    linear-gradient(var(--line-2), var(--line-2)) 50% 0 / calc(100% - var(--r-xl) * 2) 1px no-repeat; }
+}
+@media (max-width: 768px) { body.ag-mode { --ag-sw-h: calc(var(--s8) + var(--s3)); } }
 </style>
 </head>
 <body>

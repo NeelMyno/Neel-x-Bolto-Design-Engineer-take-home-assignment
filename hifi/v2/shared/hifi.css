@@ -374,6 +374,7 @@ a.gap:focus-visible { outline-offset: 1px; }
 .nil li:first-child { border-top: 0; padding-top: 0; }
 .nil .ic { color: var(--ink-2); }
 .attach { display: flex; align-items: center; gap: var(--s3); margin-top: var(--s4); padding: var(--s3) var(--s4); border: 1px solid var(--line-2); border-radius: var(--r-md); background: var(--surface); font: var(--p3); }
+.rvm-in .attach { border-radius: var(--r-xl); } /* v3 review: sits between a --r-xl .paper and .rvm-mail */
 .attach .ic { color: var(--ink-2); }
 .email { border: 1px solid var(--line-2); border-radius: var(--r-md); overflow: hidden; }
 .email dl { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--s2) var(--s3); padding: var(--s3) var(--s4); border-bottom: 1px solid var(--line-1); background: var(--canvas); }

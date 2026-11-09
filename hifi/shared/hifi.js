@@ -195,7 +195,7 @@ document.addEventListener('change', e => { const t = e.target; if(!t || t.type !
 function focusQuiet(el, o = {}){
   if(!el || typeof el.focus !== 'function') return;
   const preventScroll = o.preventScroll !== false;
-  if(modality !== 'touch'){ el.focus({preventScroll}); return; }
+  if(modality === 'key'){ el.focus({preventScroll}); return; }
   el.dataset.quietFocus = '';
   el.addEventListener('blur', () => { delete el.dataset.quietFocus; }, {once:true});
   el.focus({preventScroll, focusVisible:false});

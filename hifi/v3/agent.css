@@ -28,6 +28,7 @@ body.ag-mode.view-letter .ag-pane { display: none; }
   body.ag-mode .ag-pane { position: sticky; top: var(--ag-top); height: calc(100vh - var(--ag-top) - var(--ag-bottom)); }
   body.ag-mode .hx-body { padding-bottom: var(--s6); }
   .ag-panel { flex: 1 1 auto; min-height: 0; overflow: hidden; }
+  .ag-trackw { position: relative; } /* holds the top fade; on phones the sticky rule already does */
   .ag-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
 }
 @media (max-width: 1023.98px) {
@@ -58,9 +59,11 @@ body.ag-mode.view-letter .ag-pane { display: none; }
 .ag-trackw.is-on { grid-template-rows: 1fr; visibility: visible; transition: grid-template-rows var(--d-slow) var(--ease-enter); }
 .ag-trackw.no-anim, .ag-trackw.no-anim * { transition: none !important; animation: none !important; }
 .ag-track-clip { min-height: 0; overflow: hidden; }
+/* the thread fades out under the tracker, as it does above the composer. Out of flow, and as tall as the thread's top padding, so at rest it covers no words */
+.ag-trackw::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: var(--ag-fade); background: linear-gradient(to bottom, var(--surface), transparent); pointer-events: none; z-index: 2; }
 .ag-trackw.is-on .ag-track { opacity: 1; transform: none; transition: opacity var(--d-slow) var(--ease-enter), transform var(--d-slow) var(--ease-enter); }
 .ag-track { opacity: 0; transform: translateY(calc(var(--rise) * -1)); transition: opacity var(--ag-out) var(--ease-exit), transform var(--ag-out-slow) var(--ease-exit); border-bottom: 1px solid var(--line-1); padding: var(--s3) var(--ag-gut) var(--s2); }
-.ag-track-h { display: flex; justify-content: space-between; align-items: center; gap: var(--s3); padding: 0 var(--s2); margin-bottom: var(--s2); font: var(--label); }
+.ag-track-h { display: flex; justify-content: space-between; align-items: center; gap: var(--s3); padding: 0; margin-bottom: var(--s2); font: var(--label); }
 .ag-swapbox { position: relative; display: block; min-width: 0; }
 .ag-v { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ag-v.is-out { position: absolute; left: 0; right: 0; top: 0; animation: ag-v-out var(--ag-out) var(--ease-exit) forwards; }
@@ -75,7 +78,7 @@ body.ag-mode.view-letter .ag-pane { display: none; }
 .ag-prog .t { stroke: var(--line-1); }
 .ag-prog .f { stroke: var(--ink); stroke-linecap: round; stroke-dasharray: 1; transition: stroke-dashoffset var(--d-ring) var(--ease-move), stroke var(--d-base) var(--ease-enter); }
 .ag-track.is-all .ag-prog .f { stroke: var(--success); }
-.ag-steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--s1); isolation: isolate; }
+.ag-steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--s1); isolation: isolate; margin-inline: calc(var(--s2) * -1); } /* the step's padding hangs into the gutter, so the bars sit on the title and the status */
 .ag-step { position: relative; text-align: left; background: none; border: 0; padding: var(--s2); border-radius: var(--r-sm); cursor: pointer; display: grid; gap: var(--s1); min-width: 0; font: inherit; color: inherit; transition: background-color var(--d-micro) var(--ease-enter), transform var(--d-micro) var(--ease-enter); }
 .ag-step:active { transform: scale(var(--press-wide)); }
 .ag-seg { display: block; height: var(--ag-seg-h); border-radius: var(--r-pill); background: var(--line-1); overflow: hidden; margin-bottom: var(--s1); }
@@ -198,7 +201,7 @@ body.ag-mode.view-letter .ag-pane { display: none; }
 .ag-state { display: grid; gap: var(--s2); }
 
 /* ---- tool card ---- */
-.ag-tool { background: var(--surface); border: 1px solid var(--line-2); border-radius: var(--r-lg); padding: var(--s2) var(--s3); display: grid; }
+.ag-tool { background: var(--surface); border: 1px solid var(--line-2); border-radius: var(--r-md); padding: var(--s2) var(--s3); display: grid; }
 .ag-tool-h { display: flex; align-items: center; gap: var(--s2); width: 100%; min-height: var(--control-h-sm); background: none; border: 0; padding: 0; cursor: pointer; font: var(--p3); color: var(--ink); text-align: left; }
 .ag-tool-h:disabled { cursor: default; color: var(--ink); }
 .ag-tool-ic { display: grid; place-items: center; width: 16px; height: 16px; flex: none; }
@@ -214,7 +217,7 @@ body.ag-mode.view-letter .ag-pane { display: none; }
 .ag-tool-m { display: flex; align-items: center; gap: var(--s2); font: var(--p3); }
 .ag-tool-ok { color: var(--success); }
 .is-draw :is(path, polyline) { stroke-dasharray: 1; stroke-dashoffset: 1; animation: hx-draw var(--d-base) var(--ease-enter) forwards; }
-.ag-tool-r { margin-left: auto; color: var(--ink-2); animation: ag-fade var(--d-fast) var(--ease-enter) both; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ag-tool-r { margin-left: auto; flex: none; color: var(--ink-2); animation: ag-fade var(--d-fast) var(--ease-enter) both; white-space: nowrap; }
 .ag-tool-r:empty { animation: none; }
 .ag-tool-row.is-new { animation: ag-rise var(--d-base) var(--ease-enter) both; }
 .ag-tool-d { margin: var(--s1) 0 0; padding-left: var(--s6); display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0 var(--s3); font: var(--p4); color: var(--ink-2); }
@@ -303,7 +306,7 @@ body.ag-mode .demo.is-flow { position: fixed; left: var(--s4); bottom: var(--s4)
   .ag-av.is-working .ag-bolt-f { opacity: 0; }
 }
 /* phones: the tracker values wrap to two lines instead of being cut */
-@media (max-width: 600px), (min-width: 1024px) and (max-width: 1199px) { .ag-step { padding-inline: var(--s1); } }
+@media (max-width: 600px), (min-width: 1024px) and (max-width: 1199px) { .ag-step { padding-inline: var(--s1); } .ag-track-h { padding-inline: var(--s1); } .ag-steps { margin-inline: 0; } }
 @media (max-width: 480px) { .ag-step-n { white-space: nowrap; } .ag-step-n .ag-ck, .ag-step-n .ag-pen { display: none; } }
 
 /* 1a the pill sits on the pane, over a band the letter has already faded out of, so it never covers words */
@@ -341,24 +344,26 @@ body.ag-mode .demo.is-flow { position: fixed; left: var(--s4); bottom: var(--s4)
 /* ---- the summary table ---- */
 /* the negative margin gives the row tint room on both sides while the text stays on the thread's edge; separate borders so the tint can round */
 .ag-turn-review .ag-block { margin-inline: calc(var(--s2) * -1); padding-inline: var(--s2); }
-.ag-sum { width: calc(100% + var(--s2) * 2); margin-inline: calc(var(--s2) * -1); table-layout: fixed; border-collapse: separate; border-spacing: 0; font: var(--p3); }
+.ag-sum { width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 0; font: var(--p3); }
 .ag-sum-cl { width: 36%; }
 .ag-sum-ca { width: var(--ag-sum-a); }
-.ag-sum th, .ag-sum td { padding: var(--s2); text-align: left; vertical-align: top; font-weight: 400; overflow-wrap: anywhere; border-top: 1px solid var(--line-1); transition: background-color var(--d-micro) var(--ease-enter), border-top-color var(--d-micro) var(--ease-enter); }
+.ag-sum th, .ag-sum td { padding: var(--s2); text-align: left; vertical-align: top; font-weight: 400; overflow-wrap: anywhere; border-top: 1px solid var(--line-1); box-shadow: calc(var(--s2) * -1) 0 0 transparent, var(--s2) 0 0 transparent; transition: background-color var(--d-micro) var(--ease-enter), border-top-color var(--d-micro) var(--ease-enter), box-shadow var(--d-micro) var(--ease-enter), border-radius var(--d-micro) var(--ease-enter); }
 .ag-sum th[scope="row"] { color: var(--ink-2); }
-.ag-sum .ag-sum-g th { font: var(--label); padding: var(--s4) var(--s2) var(--s2); color: var(--ink); border-top: 0; }
+.ag-sum .ag-sum-g th { font: var(--label); padding: var(--s4) var(--s2) var(--s2) 0; color: var(--ink); border-top: 0; }
 .ag-sum tbody:first-of-type .ag-sum-g th { padding-top: 0; }
 .ag-sum-nil { font: var(--p4); color: var(--ink-2); margin-left: var(--s2); }
-.ag-sum-r > :first-child { border-radius: var(--r-sm) 0 0 var(--r-sm); }
-.ag-sum-r > :last-child { border-radius: 0 var(--r-sm) var(--r-sm) 0; }
+/* hairlines run the column edge to edge and text sits on it; the tint alone reaches past it, and only tinted cells round off */
+.ag-sum-r > :first-child { padding-left: 0; --ag-sum-c: var(--r-sm) 0 0 var(--r-sm); }
+.ag-sum-r > :last-child { padding-right: 0; --ag-sum-c: 0 var(--r-sm) var(--r-sm) 0; }
+.ag-sum-a .linkbtn { align-items: flex-start; }
 .ag-sum .why { display: block; font: var(--p4); color: var(--ink-2); margin-top: var(--nudge); }
-.ag-sum-a { text-align: right; }
+.ag-sum td.ag-sum-a { text-align: right; }
 /* the cells carry the tint: a pseudo-element on a table row becomes an extra column. Neutral, because blue means action, selection or focus */
 .ag-sum-r.is-chg > * { animation: ag-sum-chg var(--d-glow) var(--ease-linear); }
-@keyframes ag-sum-chg { 0%, 40% { background-color: var(--surface-sunk); border-top-color: transparent; } 100% { background-color: transparent; border-top-color: var(--line-1); } }
+@keyframes ag-sum-chg { 0%, 40% { background-color: var(--surface-sunk); border-top-color: transparent; box-shadow: calc(var(--s2) * -1) 0 0 var(--surface-sunk), var(--s2) 0 0 var(--surface-sunk); border-radius: var(--ag-sum-c); } 100% { background-color: transparent; border-top-color: var(--line-1); box-shadow: calc(var(--s2) * -1) 0 0 transparent, var(--s2) 0 0 transparent; border-radius: 0; } }
 @media (hover: hover) and (pointer: fine) {
-  .ag-sum-a .linkbtn { opacity: 0; transform: translateX(var(--nudge)); transition: opacity var(--ag-out) var(--ease-exit), transform var(--ag-out) var(--ease-exit); }
-  .ag-sum-r:hover > * { background: var(--canvas); border-top-color: transparent; }
+  .ag-sum-a .linkbtn { opacity: 0; transform: translateX(calc(var(--nudge) * -1)); transition: opacity var(--ag-out) var(--ease-exit), transform var(--ag-out) var(--ease-exit); }
+  .ag-sum-r:hover > * { background: var(--canvas); border-top-color: transparent; box-shadow: calc(var(--s2) * -1) 0 0 var(--canvas), var(--s2) 0 0 var(--canvas); border-radius: var(--ag-sum-c); }
   .ag-sum-r:hover + .ag-sum-r > * { border-top-color: transparent; }
   .ag-sum-r:hover .linkbtn, .ag-sum-r:focus-within .linkbtn { opacity: 1; transform: none; transition: opacity var(--d-fast) var(--ease-enter), transform var(--d-fast) var(--ease-enter); }
 }
@@ -387,6 +392,7 @@ body.ag-mode .demo.is-flow { position: fixed; left: var(--s4); bottom: var(--s4)
 .rvm-appr { margin: 0; font: var(--p3); }
 .rvm-acts { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--s2); }
 @media (min-width: 600px) { .rvm-acts { flex-wrap: nowrap; } .rvm-acts .rvm-line { flex: 1 1 0; min-width: 0; } .rvm-acts .btn { flex: none; } }
+@media (max-width: 599.98px) { .rvm-acts .btn { flex: 1 1 auto; } } /* phones: the buttons run the width of the text above them */
 .rvm-line { position: relative; flex: 1 1 100%; display: grid; margin: 0; font: var(--p4); color: var(--ink-2); transition: color var(--d-base) var(--ease-enter); }
 .rvm-line[hidden] { display: none; }
 .rvm-line.is-nudge { color: var(--ink); }
@@ -399,8 +405,10 @@ body.ag-mode .demo.is-flow { position: fixed; left: var(--s4); bottom: var(--s4)
 [data-gate="read"] .rvm-l1 .ic { transform: none; }
 .rvm-foot .btn-send { transition: background-color var(--d-base) var(--ease-enter), color var(--d-base) var(--ease-enter); }
 .rvm-foot .btn-send .ic-send { transition: transform var(--d-base) var(--ease-enter), opacity var(--d-base) var(--ease-enter); }
+.rvm-foot .btn-send .label { transition: transform var(--d-base) var(--ease-enter), opacity var(--d-fast) var(--ease-enter); }
 .btn-send.is-locked, .btn-send.is-locked:hover, .btn-send.is-locked:active { background: var(--surface-sunk); color: var(--ink-2); cursor: not-allowed; transform: none; }
 .btn-send.is-locked .ic-send { opacity: 0; transform: translateX(calc(var(--s2) * -1)); }
+.rvm-foot .btn-send.is-locked .label { transform: translateX(calc((var(--icon) + var(--s2)) / 2)); } /* the hidden icon keeps its space so the button never changes width; the label slides to true centre */
 #rvm-err-w .ag-err { font: var(--p3); }
 .rvm-fly { position: absolute; left: 0; top: 0; z-index: 2; pointer-events: none; will-change: transform, clip-path; }
 @media (hover: hover) and (pointer: fine) { .rvm-x:hover { background: var(--canvas); } }
@@ -411,8 +419,8 @@ body.ag-mode .demo.is-flow { position: fixed; left: var(--s4); bottom: var(--s4)
   .rvm-foot { padding: var(--s3) var(--s4); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .ag-sum-r.is-chg > * { background: var(--surface-sunk); border-top-color: transparent; }
-  .rvm-line, .rvm-l, .rvm-l .ic, .rvm-foot .btn-send, .rvm-foot .btn-send .ic-send, .ag-sum-a .linkbtn { transition: none !important; }
+  .ag-sum-r.is-chg > * { background: var(--surface-sunk); border-top-color: transparent; box-shadow: calc(var(--s2) * -1) 0 0 var(--surface-sunk), var(--s2) 0 0 var(--surface-sunk); border-radius: var(--ag-sum-c); }
+  .rvm-line, .rvm-l, .rvm-l .ic, .rvm-foot .btn-send, .rvm-foot .btn-send .ic-send, .rvm-foot .btn-send .label, .ag-sum-a .linkbtn { transition: none !important; }
 }
 
 /* phones: the role title keeps the width, and the status sits under the candidate */
@@ -422,6 +430,18 @@ body.ag-mode .demo.is-flow { position: fixed; left: var(--s4); bottom: var(--s4)
   .ag-role > .ag-role-l { grid-column: 2; grid-row: 1; }
   .ag-role > .ag-tag { grid-column: 2; grid-row: 2; justify-self: start; }
   .ag-role > .ag-arrow { grid-column: 3; grid-row: 1 / span 2; align-self: center; }
+  /* the summary: Change takes its own line, so the value gets the width Change's column was holding */
+  .ag-sum, .ag-sum > tbody, .ag-sum-g, .ag-sum-g > th { display: block; }
+  .ag-sum-r { display: grid; grid-template-columns: 36% minmax(0, 1fr); }
+  .ag-sum-r > th[colspan] { grid-column: 1 / -1; }
+  .ag-sum-r > :nth-last-child(2) { padding-right: 0; }
+  .ag-sum td.ag-sum-a { grid-column: 1 / -1; border-top: 0; padding-block: 0 var(--s2); }
+  .ag-sum td.ag-sum-a:empty { display: none; }
+  .ag-sum-a .linkbtn { opacity: 1; transform: none; } /* a held line must never read as a blank one */
+  .ag-sum-r > :first-child { --ag-sum-c: var(--r-sm) 0 0 0; }
+  .ag-sum-r > :nth-last-child(2) { --ag-sum-c: 0 var(--r-sm) 0 0; }
+  .ag-sum-r > th[colspan] { --ag-sum-c: var(--r-sm) var(--r-sm) 0 0; }
+  .ag-sum-r > .ag-sum-a { --ag-sum-c: 0 0 var(--r-sm) var(--r-sm); }
 }
 
 /* the narrowest phones: a value wider than its cell wraps on whole words instead of running into the next cell */
