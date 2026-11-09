@@ -3,6 +3,7 @@
 /* ---- header switch: centred on the page, whatever the breadcrumb does ---- */
 .hx-header-in { position: relative; }
 .hx-mode[hidden] { display: none; }
+.hx-mode.is-gone { opacity: 0; pointer-events: none; transition: opacity var(--d-close) var(--ease-exit); }
 @media (min-width: 1024px) {
   .hx-mode { position: absolute; left: 50%; top: 50%; width: var(--ag-mode-w); transform: translate(-50%, -50%); }
   .hx-mode .seg { width: 100%; }

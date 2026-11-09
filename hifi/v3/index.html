@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>New offer · Bolto</title>
-<!-- Bolto offer flow, v2: the offer can start from a job link, notes, a file or an approved offer. Built on the v1 page.
+<!-- Bolto offer flow, v3: an agent chat works through the offer with you, and the Form view stays one switch away. Built on the v2 page.
      Shared kit: shared/. -->
 <link rel="icon" href="shared/brand/brandmark-ink.svg">
 <link rel="stylesheet" href="shared/tokens.css">
@@ -263,6 +263,8 @@ fresh();
 /* ===================== helpers (lo-fi) ===================== */
 const num = v => { const s = String(v ?? '').replace(/[$,\s]/g, ''); if(!/^\d+(\.\d+)?$/.test(s)) return null; return parseFloat(s); };
 const money = n => '$' + Number(n).toLocaleString('en-US', {minimumFractionDigits: Number.isInteger(n) ? 0 : 2, maximumFractionDigits: 2});
+/* a or an before a spoken dollar amount: goes by the first group of digits (8, 11, 18, 80-89, 800-899 say a vowel first) */
+const aOrAn = n => /^(8\d{0,2}|11|18)$/.test(Math.floor(Number(n)).toLocaleString('en-US').split(',')[0]) ? 'an' : 'a';
 const money0 = n => '$' + Math.round(Number(n)).toLocaleString('en-US');
 const iso2d = iso => { const [y,m,d] = iso.split('-').map(Number); return new Date(y, m-1, d); };
 const fdate = iso => iso ? iso2d(iso).toLocaleDateString('en-US', {month:'long', day:'numeric', year:'numeric'}) : '';
@@ -1575,7 +1577,7 @@ function approvalText(){
   const f = S.f, pay = `${money(num(f.amount))} ${f.payType === 'Hourly' ? 'an hour' : 'a year'}`;
   const kind = isCon() ? 'contractor (1099)' : `${f.empType === 'ft' ? 'full-time' : 'part-time'} W-2 employee`;
   const otp = isCon() ? 'paid against invoices' : (otFinal() ? 'no overtime pay' : 'gets overtime pay');
-  const m = +f.bonusMonths, bonus = f.bonusOpen && validBonus() ? `a ${money(num(f.bonus))} signing bonus${f.bonusRepay
+  const m = +f.bonusMonths, bonus = f.bonusOpen && validBonus() ? `${aOrAn(num(f.bonus))} ${money(num(f.bonus))} signing bonus${f.bonusRepay
     ? `, repaid if ${who() || 'they'} ${isCon() ? 'ends the engagement' : 'resigns or is let go for cause'} within ${m} month${m === 1 ? '' : 's'}` : ', not repaid'}` : 'no signing bonus';
   const eq = f.equityOpen && f.equity.trim() ? `, equity: ${f.equity.trim()}` : '';
   return `You're approving: ${pay}, ${bonus}${eq}, ${kind}, ${otp}. Sent to ${f.email.trim()}.`;
