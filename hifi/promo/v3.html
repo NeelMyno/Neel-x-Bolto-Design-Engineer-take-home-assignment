@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>Bolto promo, v3</title>
+<link rel="stylesheet" href="../shared/tokens.css">
+<link rel="stylesheet" href="promo.css">
+</head>
+<body>
+<main class="page wrap">
+  <div class="bar">
+    <img src="../shared/brand/full-ink.svg" alt="Bolto">
+    <span class="kicker"><span class="label">Offer letters</span><span class="new">New</span></span>
+  </div>
+
+  <div class="head">
+    <h1>Send an offer by answering a few questions</h1>
+    <div class="lede">
+      <p>Pick the role. Bolto fills in what it already knows and only asks what's left. The letter stays beside you the whole time.</p>
+      <a class="cta" href="../v3/">Create offer letter<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></a>
+    </div>
+  </div>
+
+  <div class="body">
+
+    <div class="stage" role="group" aria-label="Bolto asks what kind of hire Alex Rivera is, beside the top of his offer letter, where the employment type is still blank.">
+      <div class="sources">
+        <p class="lab">What Bolto still needs</p>
+        <div class="card ag-q">
+          <div class="ag-turn">
+            <span class="ag-av"><span data-ic="zap"></span></span>
+            <div class="ag-body">
+              <p class="ag-name">Bolto</p>
+              <p class="ag-text">What kind of hire is Alex?</p>
+              <p class="ag-quiet">The posting says Full-time.</p>
+              <div class="ag-rows">
+                <button type="button" class="ag-row" data-a="ft"><span data-ic="briefcase"></span><span class="ag-row-l">Full-time</span><span class="ag-row-r">W-2</span><span data-ic="arrow-right"></span></button>
+                <button type="button" class="ag-row" data-a="pt"><span data-ic="clock-3"></span><span class="ag-row-l">Part-time</span><span class="ag-row-r">W-2</span><span data-ic="arrow-right"></span></button>
+                <button type="button" class="ag-row" data-a="c"><span data-ic="file-pen-line"></span><span class="ag-row-l">Contractor</span><span class="ag-row-r">1099</span><span data-ic="arrow-right"></span></button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="letter">
+        <p class="lab">What Alex will see</p>
+        <div class="paper">
+          <div class="paper-h"><span class="co">Acme Co.</span><span class="st">May 25, 2026</span></div>
+          <p class="dear">Dear Alex,</p>
+          <p class="intro">We'd like to offer you the role of Senior full-stack engineer at Acme Co. Here are the key terms.</p>
+          <table class="kt"><tbody>
+            <tr><th scope="row">Role</th><td>Senior full-stack engineer</td></tr>
+            <tr class="kt-q">
+              <th scope="row"><span class="kt-swap"><span class="kt-s kt-rest">Employment type</span><span class="kt-s" data-a="c" aria-hidden="true">Engagement</span></span></th>
+              <td><span class="kt-swap"><span class="kt-s kt-rest"><span class="gap">worker type</span></span><span class="kt-s kt-v" data-a="ft" aria-hidden="true">Full-time employee</span><span class="kt-s kt-v" data-a="pt" aria-hidden="true">Part-time employee</span><span class="kt-s kt-v" data-a="c" aria-hidden="true">Independent contractor</span></span></td>
+            </tr>
+            <tr><th scope="row">Starts</th><td>June 15, 2026</td></tr>
+            <tr><th scope="row">Work location</th><td>Remote</td></tr>
+            <tr><th scope="row">Pay</th><td>$150,000 a year</td></tr>
+            <tr><th scope="row">Signing bonus</th><td>$10,000</td></tr>
+            <tr><th scope="row">Offer expires</th><td>June 1, 2026</td></tr>
+          </tbody></table>
+        </div>
+      </div>
+
+      <p class="stage-note">Point at an answer to see the line it fills in.</p>
+    </div>
+    <ol class="points">
+      <li class="pt" data-p="paper"><span class="n">1</span><h2>Starts from your open roles</h2><p>Pick a role and Bolto reads what's on record for it.</p></li>
+      <li class="pt" data-p="sources"><span class="n">2</span><h2>Asks only what's left</h2><p>What it finds goes in the letter, and the questions cover the rest.</p></li>
+      <li class="pt" data-p="decide"><span class="n">3</span><h2>You make the call on pay, worker type and overtime</h2><p>Bolto copies what someone already decided and won't suggest an answer.</p></li>
+    </ol>
+  </div>
+</main>
+<script src="../shared/icons/icons.js"></script>
+<script>document.querySelectorAll('[data-ic]').forEach(function(el){ el.outerHTML = Icons.svg(el.dataset.ic); });</script>
+</body>
+</html>

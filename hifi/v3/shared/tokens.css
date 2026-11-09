@@ -1,0 +1,166 @@
+/* Bolto hi-fi tokens: the brand-lock in code.
+   Source: Bolto's 2026 brand kit, with contrast fixes. Every colour, size, curve and duration used by
+   the hi-fi pages comes from this file. A literal hex, px duration or cubic-bezier anywhere else
+   is a defect (checked by tools/hifi_tokens_check.py). */
+
+@import url("https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600&display=swap");
+
+:root {
+  /* Canvas and surfaces (kit, kept) */
+  --canvas: #F4F4F1;          /* surface/1 */
+  --surface: #FFFFFF;         /* background */
+  --surface-tint: #E8EFFE;    /* surface/4 */
+  --surface-sunk: #EDEDE9;    /* derived: canvas one step down, for the segmented track */
+
+  /* Ink (kit, kept; tertiary never used for text, P21) */
+  --ink: #1A1A1A;             /* 15.8:1 on canvas */
+  --ink-2: #595961;           /* 6.3:1 on canvas, 6.9:1 on white */
+  --ink-3: #9D9D9D;           /* decorative rules only */
+
+  /* Lines */
+  --line-1: #EDEDED;          /* outline/1: hairlines inside cards */
+  --line-2: #D3D3D3;          /* outline/2: card edges on canvas */
+  --line-field: #8A8A8A;      /* P4: field and secondary-button border, 3.45:1 on white */
+
+  /* Blue leads (kit idle; P8 hover/pressed; P16 link) */
+  --blue: #2966FF;            /* white label 4.73:1 */
+  --blue-hover: #1F55E0;      /* white label 6.12:1 */
+  --blue-press: #1A47BD;      /* white label 7.84:1 */
+  --blue-pill: #CCDBFF;       /* info/pill-background */
+  --link: #1553D6;            /* 6.48 white, 5.88 canvas, 5.62 tint */
+
+  /* Status: hue only on icons and fills, text stays ink (P13) */
+  --success: #1B873F;   --success-bg: #DDFDCF;
+  --warning: #C25E00;   --warning-bg: #FDEEE0;
+  --error:   #C42B1C;   --error-bg:   #F8E3E0;   /* error text allowed: 5.66 white, 4.60 on bg */
+  --info:    #1553D6;   --info-bg:    #E8EFFE;
+
+  /* Focus (P7): one ring everywhere */
+  --focus: #2966FF;
+  --focus-width: 2px;
+  --focus-offset: 2px;
+
+  /* Type: Inter as the Aeonik stand-in (brief p4). Scale exactly as the kit. */
+  --font: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --h4: 400 40px/44px var(--font);      /* page headlines */
+  --h6: 400 24px/32px var(--font);      /* panel and section titles */
+  --p1: 400 20px/26px var(--font);      /* lead */
+  --p2: 400 16px/22px var(--font);      /* body, long text, the letter */
+  --p3: 400 14px/20px var(--font);      /* default UI text, inputs */
+  --label: 500 14px/20px var(--font);   /* buttons, labels, emphasis */
+  --p4: 400 12px/16px var(--font);      /* tags, help, captions */
+  --track-tight: -0.02em;               /* kit: slightly tight on large headlines */
+
+  /* Space: kit 4px base; 48 and 64 are layout-only extensions */
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s6: 24px; --s8: 32px; --s12: 48px; --s16: 64px;
+
+  /* Radii (kit) */
+  --r-sm: 8px; --r-md: 10px; --r-lg: 12px; --r-xl: 24px; --r-pill: 999px;
+
+  /* Sizes */
+  --control-h: 44px;          /* P10: buttons, fields, radio cards */
+  --control-h-sm: 32px;       /* segmented options, small buttons */
+  --icon: 20px;               /* Lucide at 1.25px stroke (F5) */
+  --icon-stroke: 1.25;
+
+  /* Elevation: hairlines first; shadow only for the letter paper and floating layers */
+  --shadow-paper: 0 1px 2px rgba(26, 26, 26, 0.04), 0 12px 32px -12px rgba(26, 26, 26, 0.10);
+  --shadow-pop: 0 2px 4px rgba(26, 26, 26, 0.06), 0 16px 40px -8px rgba(26, 26, 26, 0.16);
+
+  /* Motion (spec section 6). Two curves move things; pop is for ticks only. */
+  --ease-enter: cubic-bezier(0.2, 0, 0, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --ease-pop: cubic-bezier(0.34, 1.4, 0.64, 1);
+  --ease-linear: linear;
+  --d-micro: 80ms;            /* hover colour, press */
+  --d-fast: 140ms;            /* small fades, toggletip, chevron colour */
+  --d-base: 200ms;            /* chevron turn, check draw, segmented text */
+  --d-slow: 280ms;            /* accordion open, segmented thumb, rise */
+  --d-slower: 400ms;          /* page entry, sent check */
+  --d-glow: 900ms;            /* letter value highlight fade */
+  --stagger: 40ms;
+  --rise: 8px;
+  --press: 0.97;
+  --press-icon: 0.92;
+  --press-wide: 0.985;
+  --disabled-opacity: 0.4;
+
+  /* Added by the v1 hi-fi build (2026-11-01): durations the spec's motion score (17 §6) names exactly
+     that the set above lacked. Each line names the M-row it serves. */
+  --d-none: 0s;               /* reduced motion: instant */
+  --d-delay: 60ms;            /* M2: content fade-in waits for the rows to start */
+  --d-fade-out: 120ms;        /* M2: content fades out first */
+  --d-tick: 160ms;            /* M11: checkbox tick draw */
+  --d-tip-out: 90ms;          /* M13: toggletip close */
+  --d-close: 240ms;           /* M2: accordion close; M22 */
+  --d-ring: 260ms;            /* M4: rail ring arc */
+  --d-sweep: 300ms;           /* M20 (v2): fill tint sweep */
+  --d-page: 380ms;            /* M1, M15: page parts rise */
+  --d-busy-delay: 150ms;      /* M10, M20: spinner appears only after this */
+  --d-busy-hold: 400ms;       /* M20: a shown spinner stays at least this long */
+  --d-hover-intent: 400ms;    /* toggletip opens on mouse hover after this (17 §5) */
+  --stagger-fill: 30ms;       /* M20 (v2): fields fill 30ms apart */
+  --stagger-close: 80ms;      /* M20 (v2): finished sections close 80ms apart */
+  --rise-sm: 4px;             /* M5, M19: small text swap travel */
+  --nudge: 2px;               /* M18: send icon hover */
+  --pop-from: 0.8;            /* M3: status pop */
+  --tip-from: 0.96;           /* M13: toggletip scale */
+  --dot-from: 0.5;            /* M11: radio dot */
+
+  /* Added for the promo section (2026-11-02): a marketing headline above the kit's H4, and lines on the blue stage.
+     Same face, same regular weight, tracking tightened to its size. */
+  --d1: 400 64px/64px var(--font);      /* promo headline at desktop; H4 below 900 wide */
+  --track-display: -0.035em;
+  --on-blue-line: rgba(255, 255, 255, 0.28);  /* hairlines and rings on Bolto blue, never text */
+  --on-blue-wash: rgba(255, 255, 255, 0.10);  /* the stage's inner panel */
+}
+
+/* v3 agent (spec 19): additive only. */
+:root {
+  --ag-col: 680px;          /* agent column */
+  --ag-top: 88px;           /* pane sticks below the header */
+  --ag-tool-step: 320ms;    /* A6: one tool row */
+  --ag-send: 700ms;         /* same as v2's send wait */
+
+  /* stage 2: the motion score A1-A21 and the agent's surfaces (spec 19 section 13) */
+  --ease-move: cubic-bezier(0.4, 0, 0.2, 1);   /* moving and morphing */
+  --ag-morph: 240ms;          /* A4: same as --d-close, so the row and the fold share one curve */
+  --ag-word: 140ms;           /* A2 */
+  --ag-word-step: 16ms;       /* A2 */
+  --ag-land: 60ms;            /* A8, A18: values and cards land this far apart */
+  --ag-bolt: 1400ms;          /* A3: one fill of the bolt */
+  --ag-fly-min: 320ms;        /* A5, A7: short trips */
+  --ag-fly-max: 560ms;        /* A5, A7: the longest trip */
+  --ag-fly-delay: 120ms;      /* A7: leaves once the reply has started to settle */
+  --ag-fly-guard: 400ms;      /* A7: state is released this long after a flight's end, whatever rAF did */
+  --ag-tool-hold: 240ms;      /* A6: the finished list holds this long before it folds */
+  --ag-out: 112ms;            /* exits: 20% under --d-fast */
+  --ag-out-base: 160ms;       /* exits: 20% under --d-base */
+  --ag-out-slow: 224ms;       /* exits: 20% under --d-slow */
+  --ag-shift: 16px;           /* A10: shared-axis travel */
+  --ag-arc: 72px;             /* A7: arc height */
+  --ag-fade: 24px;            /* functional mask at the thread's edges */
+  --ag-scrim-up: linear-gradient(to top, var(--surface) 64%, transparent);  /* functional: the band under the scroll cue, so it never sits on words */
+  --ag-fade-h: 72px;
+  --ag-mode-w: 168px;         /* the header's Agent / Form switch */
+  --ag-logo-w: 112px;         /* logo plus its gap: keeps the breadcrumb clear of the switch */
+  --ag-top-m: 120px;          /* pinned card under the sticky switch row, phones */
+  --ag-av: 28px;              /* agent avatar */
+  --ag-seg-h: 4px;            /* pinned card segment */
+
+  /* round 1a */
+  --ag-bottom: 88px;          /* the pane ends where the letter ends; the band below is where the form's footer sits */
+  --ag-cur-min: 0.12;         /* a current step always shows some blue */
+  --ag-demo-b: 84px;          /* phones: Demo clears the composer */
+  --ag-demo-hold: 5000ms;     /* Demo's Filling state stays mid-read this long */
+  --ag-lt-fade: 96px;         /* letter pane: fade height while there is more below */
+  --ag-letter: 280ms;         /* A11: the letter crossfade */
+  --ag-state-h: 236px;        /* the state list before it scrolls */
+  --ag-lt-band: 0.42;         /* share of that fade which is fully clear, under the Continues below pill */
+
+  /* round 3 (spec 18): the panel, the summary table, the Review modal */
+  --ag-sum-a: 80px;           /* summary table: the space held for Change, with its cell padding */
+  --ag-rvm: 360ms;            /* A25: the paper's flight. Close plays it back 20% faster (A28) */
+  --ag-prog-h: 2px;           /* A26: the reading bar */
+  --scrim: rgba(26, 26, 26, 0.4);
+}

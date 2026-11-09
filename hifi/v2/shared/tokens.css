@@ -114,3 +114,53 @@
   --on-blue-line: rgba(255, 255, 255, 0.28);  /* hairlines and rings on Bolto blue, never text */
   --on-blue-wash: rgba(255, 255, 255, 0.10);  /* the stage's inner panel */
 }
+
+/* v3 agent (spec 19): additive only. */
+:root {
+  --ag-col: 680px;          /* agent column */
+  --ag-top: 88px;           /* pane sticks below the header */
+  --ag-tool-step: 320ms;    /* A6: one tool row */
+  --ag-send: 700ms;         /* same as v2's send wait */
+
+  /* stage 2: the motion score A1-A21 and the agent's surfaces (spec 19 section 13) */
+  --ease-move: cubic-bezier(0.4, 0, 0.2, 1);   /* moving and morphing */
+  --ag-morph: 240ms;          /* A4: same as --d-close, so the row and the fold share one curve */
+  --ag-word: 140ms;           /* A2 */
+  --ag-word-step: 16ms;       /* A2 */
+  --ag-land: 60ms;            /* A8, A18: values and cards land this far apart */
+  --ag-bolt: 1400ms;          /* A3: one fill of the bolt */
+  --ag-fly-min: 320ms;        /* A5, A7: short trips */
+  --ag-fly-max: 560ms;        /* A5, A7: the longest trip */
+  --ag-fly-delay: 120ms;      /* A7: leaves once the reply has started to settle */
+  --ag-fly-guard: 400ms;      /* A7: state is released this long after a flight's end, whatever rAF did */
+  --ag-tool-hold: 240ms;      /* A6: the finished list holds this long before it folds */
+  --ag-out: 112ms;            /* exits: 20% under --d-fast */
+  --ag-out-base: 160ms;       /* exits: 20% under --d-base */
+  --ag-out-slow: 224ms;       /* exits: 20% under --d-slow */
+  --ag-shift: 16px;           /* A10: shared-axis travel */
+  --ag-arc: 72px;             /* A7: arc height */
+  --ag-fade: 24px;            /* functional mask at the thread's edges */
+  --ag-scrim-up: linear-gradient(to top, var(--surface) 64%, transparent);  /* functional: the band under the scroll cue, so it never sits on words */
+  --ag-fade-h: 72px;
+  --ag-mode-w: 168px;         /* the header's Agent / Form switch */
+  --ag-logo-w: 112px;         /* logo plus its gap: keeps the breadcrumb clear of the switch */
+  --ag-top-m: 120px;          /* pinned card under the sticky switch row, phones */
+  --ag-av: 28px;              /* agent avatar */
+  --ag-seg-h: 4px;            /* pinned card segment */
+
+  /* round 1a */
+  --ag-bottom: 88px;          /* the pane ends where the letter ends; the band below is where the form's footer sits */
+  --ag-cur-min: 0.12;         /* a current step always shows some blue */
+  --ag-demo-b: 84px;          /* phones: Demo clears the composer */
+  --ag-demo-hold: 5000ms;     /* Demo's Filling state stays mid-read this long */
+  --ag-lt-fade: 96px;         /* letter pane: fade height while there is more below */
+  --ag-letter: 280ms;         /* A11: the letter crossfade */
+  --ag-state-h: 236px;        /* the state list before it scrolls */
+  --ag-lt-band: 0.42;         /* share of that fade which is fully clear, under the Continues below pill */
+
+  /* round 3 (spec 18): the panel, the summary table, the Review modal */
+  --ag-sum-a: 80px;           /* summary table: the space held for Change, with its cell padding */
+  --ag-rvm: 360ms;            /* A25: the paper's flight. Close plays it back 20% faster (A28) */
+  --ag-prog-h: 2px;           /* A26: the reading bar */
+  --scrim: rgba(26, 26, 26, 0.4);
+}
